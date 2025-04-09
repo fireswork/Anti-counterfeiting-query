@@ -4,107 +4,63 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-importers:
+dependencies:
+  '@amap/amap-jsapi-loader':
+    specifier: ^1.0.1
+    version: 1.0.1
+  '@ant-design/icons-vue':
+    specifier: ^7.0.1
+    version: 7.0.1(vue@3.5.13)
+  '@types/echarts':
+    specifier: ^5.0.0
+    version: 5.0.0
+  '@vueuse/core':
+    specifier: ^13.1.0
+    version: 13.1.0(vue@3.5.13)
+  animate.css:
+    specifier: ^4.1.1
+    version: 4.1.1
+  ant-design-vue:
+    specifier: 4.x
+    version: 4.2.6(vue@3.5.13)
+  axios:
+    specifier: ^1.8.4
+    version: 1.8.4
+  dayjs:
+    specifier: ^1.11.13
+    version: 1.11.13
+  echarts:
+    specifier: ^5.6.0
+    version: 5.6.0
+  less:
+    specifier: ^4.3.0
+    version: 4.3.0
+  less-loader:
+    specifier: ^12.2.0
+    version: 12.2.0(less@4.3.0)
+  pinia:
+    specifier: 2.x
+    version: 2.3.1(vue@3.5.13)
+  vue:
+    specifier: ^3.5.13
+    version: 3.5.13
+  vue-echarts:
+    specifier: ^7.0.3
+    version: 7.0.3(echarts@5.6.0)(vue@3.5.13)
+  vue-router:
+    specifier: 4.x
+    version: 4.5.0(vue@3.5.13)
 
-  .: {}
-
-  packages/client:
-    dependencies:
-      animate.css:
-        specifier: ^4.1.1
-        version: 4.1.1
-      axios:
-        specifier: ^1.6.7
-        version: 1.8.4
-      less:
-        specifier: ^4.3.0
-        version: 4.3.0
-      pinia:
-        specifier: ^2.1.7
-        version: 2.3.1(vue@3.5.13)
-      vant:
-        specifier: ^4.8.5
-        version: 4.9.18(vue@3.5.13)
-      vue:
-        specifier: ^3.5.13
-        version: 3.5.13
-      vue-cropper:
-        specifier: ^1.1.1
-        version: 1.1.4
-      vue-router:
-        specifier: ^4.3.0
-        version: 4.5.0(vue@3.5.13)
-    devDependencies:
-      '@vitejs/plugin-vue':
-        specifier: ^5.2.1
-        version: 5.2.3(vite@6.2.5)(vue@3.5.13)
-      less-loader:
-        specifier: ^12.2.0
-        version: 12.2.0(less@4.3.0)
-      postcss-px-to-viewport:
-        specifier: ^1.1.1
-        version: 1.1.1
-      vite:
-        specifier: ^6.2.0
-        version: 6.2.5(less@4.3.0)
-
-  packages/management:
-    dependencies:
-      '@amap/amap-jsapi-loader':
-        specifier: ^1.0.1
-        version: 1.0.1
-      '@ant-design/icons-vue':
-        specifier: ^7.0.1
-        version: 7.0.1(vue@3.5.13)
-      '@types/echarts':
-        specifier: ^5.0.0
-        version: 5.0.0
-      '@vueuse/core':
-        specifier: ^13.1.0
-        version: 13.1.0(vue@3.5.13)
-      animate.css:
-        specifier: ^4.1.1
-        version: 4.1.1
-      ant-design-vue:
-        specifier: 4.x
-        version: 4.2.6(vue@3.5.13)
-      axios:
-        specifier: ^1.8.4
-        version: 1.8.4
-      dayjs:
-        specifier: ^1.11.13
-        version: 1.11.13
-      echarts:
-        specifier: ^5.6.0
-        version: 5.6.0
-      less:
-        specifier: ^4.3.0
-        version: 4.3.0
-      less-loader:
-        specifier: ^12.2.0
-        version: 12.2.0(less@4.3.0)
-      pinia:
-        specifier: 2.x
-        version: 2.3.1(vue@3.5.13)
-      vue:
-        specifier: ^3.5.13
-        version: 3.5.13
-      vue-echarts:
-        specifier: ^7.0.3
-        version: 7.0.3(echarts@5.6.0)(vue@3.5.13)
-      vue-router:
-        specifier: 4.x
-        version: 4.5.0(vue@3.5.13)
-    devDependencies:
-      '@vitejs/plugin-vue':
-        specifier: ^5.2.3
-        version: 5.2.3(vite@6.2.5)(vue@3.5.13)
-      vite:
-        specifier: ^6.2.4
-        version: 6.2.5(less@4.3.0)
-      vite-plugin-vue-devtools:
-        specifier: ^7.7.2
-        version: 7.7.2(vite@6.2.5)(vue@3.5.13)
+devDependencies:
+  '@vitejs/plugin-vue':
+    specifier: ^5.2.3
+    version: 5.2.3(vite@6.2.5)(vue@3.5.13)
+  vite:
+    specifier: ^6.2.4
+    version: 6.2.5(less@4.3.0)
+  vite-plugin-vue-devtools:
+    specifier: ^7.7.2
+    version: 7.7.2(vite@6.2.5)(vue@3.5.13)
 
 packages:
 
@@ -919,18 +875,6 @@ packages:
     resolution: {integrity: sha512-oIQLCGWtcFZy2JW77j9k8nHzAOpqMHLQejDA48XXMWH6tjCQHz5RCFz1bzsmROyL6PUm+LLnUiI4BCn221inxA==}
     dev: false
 
-  /@vant/popperjs@1.3.0:
-    resolution: {integrity: sha512-hB+czUG+aHtjhaEmCJDuXOep0YTZjdlRR+4MSmIFnkCQIxJaXLQdSsR90XWvAI2yvKUI7TCGqR8pQg2RtvkMHw==}
-    dev: false
-
-  /@vant/use@1.6.0(vue@3.5.13):
-    resolution: {integrity: sha512-PHHxeAASgiOpSmMjceweIrv2AxDZIkWXyaczksMoWvKV2YAYEhoizRuk/xFnKF+emUIi46TsQ+rvlm/t2BBCfA==}
-    peerDependencies:
-      vue: ^3.0.0
-    dependencies:
-      vue: 3.5.13
-    dev: false
-
   /@vitejs/plugin-vue@5.2.3(vite@6.2.5)(vue@3.5.13):
     resolution: {integrity: sha512-IYSLEQj4LgZZuoVpdSUCw3dIynTWQgPlaRP6iAvMle4My0HdYwr5g5wQAfwOeHQBmYwEkqF70nRpSilr6PoUDg==}
     engines: {node: ^18.0.0 || >=20.0.0}
@@ -1648,6 +1592,7 @@ packages:
         optional: true
     dependencies:
       less: 4.3.0
+    dev: false
 
   /less@4.3.0:
     resolution: {integrity: sha512-X9RyH9fvemArzfdP8Pi3irr7lor2Ok4rOttDXBhlwDg+wKQsXOXgHWduAJE1EsF7JJx0w0bcO6BC6tCKKYnXKA==}
@@ -1775,11 +1720,6 @@ packages:
       unicorn-magic: 0.3.0
     dev: true
 
-  /object-assign@4.1.1:
-    resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
-    engines: {node: '>=0.10.0'}
-    dev: true
-
   /open@10.1.0:
     resolution: {integrity: sha512-mnkeQ1qP5Ue2wd+aivTD3NHd/lZ96Lu0jgf0pwktLPtx6cTZiH7tyeGRRHs0zX0rbrahXPnXlUnbeXyaBBuIaw==}
     engines: {node: '>=18'}
@@ -1846,13 +1786,6 @@ packages:
     transitivePeerDependencies:
       - '@vue/composition-api'
     dev: false
-
-  /postcss-px-to-viewport@1.1.1:
-    resolution: {integrity: sha512-2x9oGnBms+e0cYtBJOZdlwrFg/mLR4P1g2IFu7jYKvnqnH/HLhoKyareW2Q/x4sg0BgklHlP1qeWo2oCyPm8FQ==}
-    dependencies:
-      object-assign: 4.1.1
-      postcss: 8.5.3
-    dev: true
 
   /postcss@8.5.3:
     resolution: {integrity: sha512-dle9A3yYxlBSrt8Fu+IpjGT8SY8hN0mlaA6GY8t0P5PjIOZemULz/E2Bnm/2dcUOena75OTNkHI76uZBNUUq3A==}
@@ -2051,17 +1984,6 @@ packages:
       picocolors: 1.1.1
     dev: true
 
-  /vant@4.9.18(vue@3.5.13):
-    resolution: {integrity: sha512-1bmWv/G0xz45btPqSasgv4TUdTqCneyFfnrQJ3xgerGvfTC5aP/rpO4wJb5FItCZjaSw5+9FNBj2Tz6n9TLXYA==}
-    peerDependencies:
-      vue: ^3.0.0
-    dependencies:
-      '@vant/popperjs': 1.3.0
-      '@vant/use': 1.6.0(vue@3.5.13)
-      '@vue/shared': 3.5.13
-      vue: 3.5.13
-    dev: false
-
   /vite-hot-client@0.2.4(vite@6.2.5):
     resolution: {integrity: sha512-a1nzURqO7DDmnXqabFOliz908FRmIppkBKsJthS8rbe8hBEXwEwe4C3Pp33Z1JoFCYfVL4kTOMLKk0ZZxREIeA==}
     peerDependencies:
@@ -2182,10 +2104,6 @@ packages:
     optionalDependencies:
       fsevents: 2.3.3
     dev: true
-
-  /vue-cropper@1.1.4:
-    resolution: {integrity: sha512-5m98vBsCEI9rbS4JxELxXidtAui3qNyTHLHg67Qbn7g8cg+E6LcnC+hh3SM/p94x6mFh6KRxT1ttnta+wCYqWA==}
-    dev: false
 
   /vue-demi@0.13.11(vue@3.5.13):
     resolution: {integrity: sha512-IR8HoEEGM65YY3ZJYAjMlKygDQn25D5ajNFNoKh9RSDMQtlzCxtfQjdQgv9jjK+m3377SsJXY8ysq8kLCZL25A==}

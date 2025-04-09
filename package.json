@@ -1,32 +1,16 @@
 {
-  "name": "manage-system",
-  "version": "0.0.0",
+  "name": "anti-counterfeiting-query-workspace",
   "private": true,
-  "type": "module",
+  "version": "1.0.0",
+  "description": "防伪查询系统工作空间",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev:client": "pnpm --filter @anti-counterfeiting/client dev",
+    "dev:management": "pnpm --filter @anti-counterfeiting/management dev",
+    "build:client": "pnpm --filter @anti-counterfeiting/client build",
+    "build:management": "pnpm --filter @anti-counterfeiting/management build"
   },
-  "dependencies": {
-    "@amap/amap-jsapi-loader": "^1.0.1",
-    "@ant-design/icons-vue": "^7.0.1",
-    "@vueuse/core": "^13.1.0",
-    "ant-design-vue": "4.x",
-    "axios": "^1.8.4",
-    "dayjs": "^1.11.13",
-    "echarts": "^5.6.0",
-    "less": "^4.3.0",
-    "less-loader": "^12.2.0",
-    "pinia": "2.x",
-    "vue": "^3.5.13",
-    "vue-echarts": "^7.0.3",
-    "vue-router": "4.x"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-vue": "^5.2.3",
-    "vite": "^6.2.4",
-    "vite-plugin-vue-devtools": "^7.7.2"
-  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
   "packageManager": "pnpm@8.15.4+sha1.c85a4305534f76d461407b59277b954bac97b5c4"
 }
