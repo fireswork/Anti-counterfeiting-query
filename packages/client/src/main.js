@@ -12,7 +12,14 @@ import {
   Dialog,
   Icon,
   RadioGroup,
-  Radio
+  Radio,
+  NavBar,
+  List,
+  PullRefresh,
+  Image as VanImage,
+  Tabbar,
+  TabbarItem,
+  ActionSheet
 } from 'vant'
 import 'vant/lib/index.css'
 import './style.css'
@@ -42,6 +49,13 @@ app.use(Dialog)
 app.use(Icon)
 app.use(RadioGroup)
 app.use(Radio)
+app.use(NavBar)
+app.use(List)
+app.use(PullRefresh)
+app.use(VanImage)
+app.use(Tabbar)
+app.use(TabbarItem)
+app.use(ActionSheet)
 
 app.use(createPinia())
 app.use(router)

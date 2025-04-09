@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import CommunityView from '../views/CommunityView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -14,12 +15,11 @@ const router = createRouter({
       name: 'register',
       component: () => import('../views/RegisterView.vue')
     },
-    // {
-    //   path: '/query',
-    //   name: 'query',
-    //   component: () => import('../views/QueryView.vue'),
-    //   meta: { requiresAuth: true }
-    // }
+    {
+      path: '/',
+      name: 'community',
+      component: CommunityView,
+    }
   ]
 })
 

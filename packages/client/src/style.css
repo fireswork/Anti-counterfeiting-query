@@ -97,3 +97,39 @@ button:focus-visible {
     transform: translateY(0px) rotate(0deg);
   }
 }
+
+@keyframes diagonal-float {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(0, 200px) rotate(180deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(360deg);
+  }
+}
+
+@keyframes diagonal-float-reverse {
+  0% {
+    transform: translate(0, 0) rotate(360deg);
+  }
+  50% {
+    transform: translate(0, -200px) rotate(180deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+}
+
+.background {
+  .shape {
+    height: 200px;
+    width: 200px;
+    position: absolute;
+    border-radius: 50%;
+    animation-duration: 10s;
+    animation-iteration-count: infinite;
+    animation-timing-function: ease-in-out;
+  }
+}

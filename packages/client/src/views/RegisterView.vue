@@ -241,7 +241,7 @@ const onSubmit = async () => {
     width: 200px;
     position: absolute;
     border-radius: 50%;
-    animation-duration: 6s;
+    animation-duration: 15s;
     animation-iteration-count: infinite;
     animation-timing-function: ease-in-out;
     
@@ -249,14 +249,16 @@ const onSubmit = async () => {
       background: linear-gradient(#1845ad, #23a2f6);
       left: -80px;
       top: -80px;
-      animation-name: float;
+      animation-name: diagonal-float;
+      transform-origin: center center;
     }
     
     &.shape-2 {
       background: linear-gradient(to right, #ff512f, #f09819);
       right: -30px;
       bottom: -80px;
-      animation-name: float-reverse;
+      animation-name: diagonal-float-reverse;
+      transform-origin: center center;
     }
   }
 }
