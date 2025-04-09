@@ -7,15 +7,17 @@
       <a-space>
         <a-input-search
           v-model:value="searchValue"
-          placeholder="商品ID（搜索）"
+          placeholder="商品名称搜索"
           style="width: 200px"
           @search="onSearch"
+          allowClear
         />
         <a-select
           v-model:value="categoryFilter"
           placeholder="商品分类"
           style="width: 150px"
           @change="onFilterChange"
+          allowClear
         >
           <a-select-option value="">全部分类</a-select-option>
           <a-select-option v-for="category in categories" :key="category.value" :value="category.value">
@@ -27,16 +29,25 @@
           placeholder="商品状态"
           style="width: 150px"
           @change="onFilterChange"
+          allowClear
         >
           <a-select-option value="">全部状态</a-select-option>
-          <a-select-option value="1">在售</a-select-option>
-          <a-select-option value="0">下架</a-select-option>
+          <a-select-option value="1">已出库</a-select-option>
+          <a-select-option value="0">未出库</a-select-option>
           <a-select-option value="2">待审核</a-select-option>
         </a-select>
+        <a-button type="primary" @click="handleSearch">
+          <template #icon><search-outlined /></template>
+          查询
+        </a-button>
+        <a-button @click="handleReset">
+          <template #icon><reload-outlined /></template>
+          重置
+        </a-button>
       </a-space>
       <a-button type="primary" @click="showAddModal">
-          <plus-outlined />添加商品
-        </a-button>
+        <plus-outlined />添加商品
+      </a-button>
     </div>
 
     <!-- 商品列表 -->
@@ -73,7 +84,6 @@
           <a-space>
             <a @click="handleEdit(record)">编辑</a>
             <a-divider type="vertical" />
-            <a @click="handleGenerateCode(record)">生成防伪码</a>
             <a-divider type="vertical" />
             <a @click="handleBatchManage(record)">批次管理</a>
             <a-divider type="vertical" />
@@ -302,7 +312,12 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, DownOutlined } from '@ant-design/icons-vue'
+import {
+  PlusOutlined,
+  SearchOutlined,
+  ReloadOutlined,
+  DownOutlined
+} from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
 import {
   getProducts,
@@ -354,18 +369,18 @@ const columns = [
   {
     title: '操作',
     dataIndex: 'action',
-    width: '120px',
+    width: '250px',
     fixed: 'right',
   },
 ]
 
-// 分类选项
+// 商品分类选项
 const categories = [
-  { label: '服装', value: 'clothing' },
-  { label: '电子', value: 'electronics' },
-  { label: '食品', value: 'food' },
-  { label: '家具', value: 'furniture' },
-  { label: '其他', value: 'other' },
+  { label: '数码电子', value: 'electronics' },
+  { label: '服装服饰', value: 'clothing' },
+  { label: '食品饮料', value: 'food' },
+  { label: '美妆护肤', value: 'beauty' },
+  { label: '家居用品', value: 'home' }
 ]
 
 // 获取分类标签
@@ -433,55 +448,69 @@ const fetchProducts = async () => {
 const filteredProducts = computed(() => {
   let result = [...products.value]
   
-  // 搜索过滤
+  // 按名称搜索
   if (searchValue.value) {
     result = result.filter(item => 
       item.name.toLowerCase().includes(searchValue.value.toLowerCase())
     )
   }
   
-  // 分类过滤
+  // 按分类筛选
   if (categoryFilter.value) {
     result = result.filter(item => item.category === categoryFilter.value)
   }
   
-  // 状态过滤
+  // 按状态筛选
   if (statusFilter.value) {
-    result = result.filter(item => String(item.status) === statusFilter.value)
+    result = result.filter(item => item.status === Number(statusFilter.value))
   }
   
   return result
 })
 
 // 搜索处理
-const onSearch = (value) => {
-  searchValue.value = value
+const handleSearch = () => {
+  // 触发表格重新加载
+  loadProducts()
 }
 
-// 筛选变化处理
-const onFilterChange = () => {
-  pagination.current = 1
+// 重置筛选条件
+const handleReset = () => {
+  searchValue.value = ''
+  categoryFilter.value = ''
+  statusFilter.value = ''
+  // 触发表格重新加载
+  loadProducts()
+}
+
+// 加载商品列表
+const loadProducts = async () => {
+  try {
+    loading.value = true
+    // TODO: 调用API获取商品列表
+    // const params = {
+    //   name: searchValue.value,
+    //   category: categoryFilter.value,
+    //   status: statusFilter.value,
+    //   page: pagination.current,
+    //   pageSize: pagination.pageSize
+    // }
+    // const response = await fetch('/api/products', { params })
+    // const data = await response.json()
+    // products.value = data.items
+    // pagination.total = data.total
+  } catch (error) {
+    message.error('加载商品列表失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 // 表格变化处理
 const handleTableChange = (pag, filters, sorter) => {
   pagination.current = pag.current
   pagination.pageSize = pag.pageSize
-  
-  // 处理排序
-  if (sorter.field && sorter.order) {
-    // 实际项目中，这里应该发起请求进行服务端排序
-    const order = sorter.order === 'ascend' ? 1 : -1
-    products.value.sort((a, b) => {
-      if (sorter.field === 'price' || sorter.field === 'stock') {
-        return order * (a[sorter.field] - b[sorter.field])
-      }
-      if (sorter.field === 'createdAt') {
-        return order * (new Date(a[sorter.field]) - new Date(b[sorter.field]))
-      }
-      return 0
-    })
-  }
+  loadProducts()
 }
 
 // 添加/编辑模态框相关
@@ -666,12 +695,6 @@ const batchColumns = [
   { title: '状态', dataIndex: 'status', width: 100 },
   { title: '操作', dataIndex: 'action', width: 150 }
 ]
-
-// 处理生成防伪码
-const handleGenerateCode = (record) => {
-  currentProduct.value = record
-  codeModalVisible.value = true
-}
 
 // 生成防伪码
 const handleCodeGenerate = async () => {
