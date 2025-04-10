@@ -32,6 +32,9 @@
           <a-select-option value="1">已启用</a-select-option>
           <a-select-option value="0">已禁用</a-select-option>
         </a-select>
+        <a-button type="primary" @click="handleRefresh">
+          <template #icon><reload-outlined /></template>
+        </a-button>
       </a-space>
       <a-space>
         <a-button 
@@ -42,9 +45,9 @@
         >
           批量删除
         </a-button>
-        <a-button type="primary" @click="showAddModal">
+        <!-- <a-button type="primary" @click="showAddModal">
           <plus-outlined /> 添加标签
-        </a-button>
+        </a-button> -->
       </a-space>
     </div>
 
@@ -163,7 +166,8 @@ import {
   EditOutlined, 
   DeleteOutlined, 
   CheckOutlined, 
-  StopOutlined 
+  StopOutlined,
+  ReloadOutlined
 } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
 
@@ -336,6 +340,11 @@ const mockTags = () => {
 
 // 初始化数据
 onMounted(() => {
+  loadData()
+})
+
+// 加载数据
+const loadData = () => {
   loading.value = true
   // 模拟API调用
   setTimeout(() => {
@@ -343,7 +352,13 @@ onMounted(() => {
     pagination.total = tags.value.length
     loading.value = false
   }, 500)
-})
+}
+
+// 刷新数据
+const handleRefresh = () => {
+  loadData()
+  message.success('刷新成功')
+}
 
 // 过滤后的标签列表
 const filteredTags = computed(() => {

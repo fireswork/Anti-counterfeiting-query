@@ -299,8 +299,6 @@
           <template v-if="column.dataIndex === 'action'">
             <a-space>
               <a @click="handleBatchDetail(record)">查看详情</a>
-              <a-divider type="vertical" />
-              <a @click="handleExportCodes(record)">导出防伪码</a>
             </a-space>
           </template>
         </template>

@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import CommunityManagement from '../views/community/index.vue'
 
 const routes = [
   {
@@ -93,6 +94,12 @@ const routes = [
             meta: { title: '查询记录' }
           }
         ]
+      },
+      {
+        path: 'community',
+        name: 'CommunityManagement',
+        component: CommunityManagement,
+        meta: { title: '社区管理' }
       }
     ]
   },

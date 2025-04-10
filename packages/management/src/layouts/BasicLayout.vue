@@ -56,6 +56,11 @@
             <router-link to="/tags/records">查询记录</router-link>
           </a-menu-item>
         </a-sub-menu>
+
+        <a-menu-item key="community">
+          <template #icon><comment-outlined /></template>
+          <router-link to="community">社区管理</router-link>
+        </a-menu-item>
       </a-menu>
     </a-layout-sider>
     <a-layout>
@@ -117,7 +122,8 @@ import {
   TagsOutlined,
   BellOutlined,
   SettingOutlined,
-  LogoutOutlined
+  LogoutOutlined,
+  CommentOutlined
 } from '@ant-design/icons-vue'
 
 const route = useRoute()
