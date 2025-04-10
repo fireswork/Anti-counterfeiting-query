@@ -11,16 +11,6 @@
           style="width: 250px"
           @search="onSearch"
         />
-        <a-select
-          v-model:value="statusFilter"
-          placeholder="状态筛选"
-          style="width: 150px"
-          @change="onFilterChange"
-        >
-          <a-select-option value="">全部状态</a-select-option>
-          <a-select-option value="1">已发布</a-select-option>
-          <a-select-option value="0">已禁用</a-select-option>
-        </a-select>
         <a-button type="primary" @click="handleRefresh">
           <template #icon><reload-outlined /></template>
           刷新
@@ -83,13 +73,6 @@
           </div>
           <span v-else>无图片</span>
         </template>
-        
-        <!-- 状态 -->
-        <template v-if="column.dataIndex === 'status'">
-          <a-tag :color="record.status === 1 ? 'green' : 'red'">
-            {{ record.status === 1 ? '已发布' : '已禁用' }}
-          </a-tag>
-        </template>
 
         <!-- 日期 -->
         <template v-if="column.dataIndex === 'createdAt'">
@@ -111,10 +94,6 @@
             >
               <a-button type="link" danger>删除</a-button>
             </a-popconfirm>
-            <a-divider type="vertical" />
-            <a-button type="link" @click="handleToggleStatus(record)">
-              {{ record.status === 1 ? '禁用' : '发布' }}
-            </a-button>
           </a-space>
         </template>
       </template>
@@ -169,12 +148,6 @@
             </div>
           </a-upload>
         </a-form-item>
-        <a-form-item label="状态" name="status">
-          <a-radio-group v-model:value="currentPost.status">
-            <a-radio :value="1">发布</a-radio>
-            <a-radio :value="0">禁用</a-radio>
-          </a-radio-group>
-        </a-form-item>
       </a-form>
     </a-modal>
 
@@ -212,11 +185,6 @@
         </a-descriptions-item>
         <a-descriptions-item label="点赞数">{{ currentPost?.likes }}</a-descriptions-item>
         <a-descriptions-item label="评论数">{{ currentPost?.comments }}</a-descriptions-item>
-        <a-descriptions-item label="状态">
-          <a-tag :color="currentPost?.status === 1 ? 'green' : 'red'">
-            {{ currentPost?.status === 1 ? '已发布' : '已禁用' }}
-          </a-tag>
-        </a-descriptions-item>
         <a-descriptions-item label="发布时间">{{ formatDate(currentPost?.createdAt) }}</a-descriptions-item>
         <a-descriptions-item label="最后更新时间">{{ formatDate(currentPost?.updatedAt) }}</a-descriptions-item>
       </a-descriptions>
@@ -254,15 +222,6 @@ const columns = [
     title: '图片',
     dataIndex: 'images',
     width: 100,
-  },
-  {
-    title: '状态',
-    dataIndex: 'status',
-    width: 100,
-    filters: [
-      { text: '已发布', value: 1 },
-      { text: '已禁用', value: 0 },
-    ],
   },
   {
     title: '发布时间',
@@ -368,7 +327,6 @@ const mockPosts = () => {
       images: randomContent.images,
       likes: Math.floor(Math.random() * 200 + 50),
       comments: Math.floor(Math.random() * 30 + 10),
-      status: Math.random() > 0.2 ? 1 : 0, // 80%是已发布状态
       createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
       updatedAt: new Date(Date.now() - Math.random() * 15 * 24 * 60 * 60 * 1000),
     })
@@ -409,11 +367,6 @@ const filteredPosts = computed(() => {
       item.content.toLowerCase().includes(keyword) || 
       item.username.toLowerCase().includes(keyword)
     )
-  }
-  
-  // 状态过滤
-  if (statusFilter.value) {
-    result = result.filter(item => String(item.status) === statusFilter.value)
   }
   
   return result
@@ -512,15 +465,6 @@ const handleDelete = (record) => {
   if (index !== -1) {
     posts.value.splice(index, 1)
     message.success('删除成功')
-  }
-}
-
-// 切换状态
-const handleToggleStatus = (record) => {
-  const index = posts.value.findIndex(item => item.id === record.id)
-  if (index !== -1) {
-    posts.value[index].status = posts.value[index].status === 1 ? 0 : 1
-    message.success(`${posts.value[index].status === 1 ? '发布' : '禁用'}成功`)
   }
 }
 
