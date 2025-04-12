@@ -59,7 +59,7 @@
 
         <a-menu-item key="community">
           <template #icon><comment-outlined /></template>
-          <router-link to="community">社区管理</router-link>
+          <router-link to="/community">社区管理</router-link>
         </a-menu-item>
       </a-menu>
     </a-layout-sider>
@@ -77,23 +77,20 @@
         />
         <div class="right">
           <a-space>
-            <a-badge :count="5">
-              <bell-outlined class="icon" />
-            </a-badge>
             <a-dropdown>
               <a-space>
-                <a-avatar>
+                <a-avatar :src="userData.avatar" :size="32">
                   <template #icon><user-outlined /></template>
                 </a-avatar>
-                <span>管理员</span>
+                <span>{{ userData.nickName }}</span>
               </a-space>
               <template #overlay>
                 <a-menu>
-                  <a-menu-item key="settings">
+                  <a-menu-item key="settings" @click="goToProfile">
                     <setting-outlined />
-                    <span>账号设置</span>
+                    <span>个人中心</span>
                   </a-menu-item>
-                  <a-menu-item key="logout">
+                  <a-menu-item key="logout" @click="handleLogout">
                     <logout-outlined />
                     <span>退出登录</span>
                   </a-menu-item>
@@ -111,7 +108,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   MenuFoldOutlined,
@@ -125,11 +122,39 @@ import {
   LogoutOutlined,
   CommentOutlined
 } from '@ant-design/icons-vue'
+import { useRouter } from 'vue-router'
+import request from '@/api/request'
+import { message } from 'ant-design-vue'
 
 const route = useRoute()
 const collapsed = ref(false)
 const selectedKeys = ref([route.name])
 const openKeys = ref([]) // 打开的子菜单数组
+const router = useRouter()
+const userData = ref({})
+const isAdmin = ref(false)
+
+const handleLogout = () => {
+  localStorage.removeItem('token')
+  router.push('/login')
+}
+
+const goToProfile = () => {
+  router.push('/profile')
+}
+
+const getUserInfo = async () => {
+  const res = await request.get('/system/user/profile')
+  userData.value = res.data
+  userData.value.avatar = import.meta.env.VITE_BASE_URL + userData.value.avatar
+  localStorage.setItem('userData', JSON.stringify(res.data))
+  isAdmin.value = res.data?.roles?.find(role => role.roleKey.toLowerCase().includes('admin'))
+
+  if (res.data?.roles?.[0]?.roleKey === 'common') {
+    message.error('您没有权限访问此页面')
+    router.push('/login')
+  }
+}
 
 // 分析当前路由，设置选中的菜单项和打开的子菜单
 watch(() => route.name, (newVal) => {
@@ -144,6 +169,10 @@ watch(() => route.name, (newVal) => {
     !openKeys.value.includes('tags') && openKeys.value.push('tags')
   }
 }, { immediate: true })
+
+onMounted(() => {
+  getUserInfo()
+})
 </script>
 
 <style scoped lang="less">

@@ -54,19 +54,15 @@
 
             <!-- 互动区域 -->
             <div class="post-actions">
-              <div class="action-item" @click="handleLike(post)">
-                <van-icon :name="post.isLiked ? 'like' : 'like-o'" :color="post.isLiked ? '#DD2476' : '#666'" />
-                <span>{{ post.likes || 0 }}</span>
-              </div>
               <div class="action-item" @click="handleComment(post)">
                 <van-icon name="comment-o" />
-                <span>{{ post.comments || 0 }}</span>
+                <span>{{ post.commentsCount || 0 }}</span>
               </div>
             </div>
 
             <!-- 评论列表 -->
-            <div class="comments-section" v-if="post.showComments">
-              <div class="comments-list">
+            <div class="comments-section">
+              <div class="comments-list" v-if="post.commentList && post.commentList.length > 0">
                 <div class="comment-item" v-for="comment in post.commentList" :key="comment.id">
                   <van-image
                     round
@@ -80,6 +76,9 @@
                     <div class="comment-time">{{ comment.createTime }}</div>
                   </div>
                 </div>
+              </div>
+              <div class="no-comments" v-else>
+                <van-empty description="暂无评论" />
               </div>
             </div>
           </div>
@@ -139,58 +138,13 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { showToast, showImagePreview } from 'vant'
+import { showToast, showImagePreview, closeToast } from 'vant'
 import { useUserStore } from '../stores/user'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
-
-// Mock数据
-const MOCK_CONTENTS = [
-  {
-    content: '今天刚收到新买的商品，扫码验证是正品，很开心！包装很精致，商家服务也很好。',
-    images: [
-      'https://cdn.pixabay.com/photo/2019/12/14/08/36/shopping-4694470_150.jpg',
-      'https://cdn.pixabay.com/photo/2020/03/17/20/52/covid-4941846_150.jpg'
-    ]
-  },
-  {
-    content: '分享一个防伪小技巧：除了扫描防伪码，大家还要注意看包装上的激光防伪标，在光线下会有特殊效果，这个很难仿制的。',
-    images: [
-      'https://cdn.pixabay.com/photo/2018/04/24/13/23/qr-code-3346117_150.jpg'
-    ]
-  },
-  {
-    content: '最近市面上高仿太多了，建议大家一定要通过正规渠道购买，收到货后第一时间验证防伪码！',
-    images: [
-      'https://cdn.pixabay.com/photo/2017/01/13/01/22/mobile-1976104_150.jpg'
-    ]
-  },
-  {
-    content: '分享一下我的购物心得：1. 一定要选择正规渠道 2. 到货先验证防伪码 3. 对比外包装细节 4. 有疑问及时联系客服',
-    images: [
-      'https://cdn.pixabay.com/photo/2016/11/22/21/57/apparel-1850804_150.jpg',
-      'https://cdn.pixabay.com/photo/2018/01/11/21/27/laptop-3076957_150.jpg',
-      'https://cdn.pixabay.com/photo/2019/07/27/21/42/scanner-4367460_150.jpg'
-    ]
-  },
-  {
-    content: '今天帮朋友鉴定了一个包，通过咱们的防伪系统一查，果然是假货，幸好没买！大家一定要注意防骗啊！',
-    images: [
-      'https://cdn.pixabay.com/photo/2017/12/09/08/18/fraud-3007108_150.jpg'
-    ]
-  }
-]
-
-const MOCK_AVATARS = [
-  'https://cdn.pixabay.com/photo/2016/08/20/05/38/avatar-1606916_150.png',
-  'https://cdn.pixabay.com/photo/2016/11/18/23/38/child-1837375_150.png',
-  'https://cdn.pixabay.com/photo/2016/04/01/12/11/avatar-1300582_150.png',
-  'https://cdn.pixabay.com/photo/2016/03/31/19/58/avatar-1295429_150.png'
-]
-
-const MOCK_USERNAMES = ['防伪小达人', '品质生活家', '正品鉴定师', '时尚达人', '精明购物狂']
+import request from '../api/request'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -238,76 +192,171 @@ const loadPosts = async () => {
   try {
     loading.value = true
     
-    const mockPosts = Array(5).fill().map((_, index) => {
-      const contentIndex = (index + (page.value - 1) * 5) % MOCK_CONTENTS.length
-      const randomContent = MOCK_CONTENTS[contentIndex]
-      const randomAvatar = MOCK_AVATARS[Math.floor(Math.random() * MOCK_AVATARS.length)]
-      const randomName = MOCK_USERNAMES[Math.floor(Math.random() * MOCK_USERNAMES.length)]
-      
-      // 生成随机时间，范围是最近7天内
-      const randomTime = new Date(Date.now() - Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000))
-      const formattedTime = randomTime.toLocaleString('zh-CN', {
-        month: 'long',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: 'numeric'
-      })
-
-      return {
-        id: Date.now() + Math.random(),
-        username: randomName,
-        avatar: randomAvatar,
-        content: page.value > 1 ? `${randomContent.content} (${page.value})` : randomContent.content,
-        images: randomContent.images,
-        createTime: formattedTime,
-        likes: Math.floor(Math.random() * 200 + 50), // 50-250的点赞数
-        comments: Math.floor(Math.random() * 30 + 10), // 10-40的评论数
-        isLiked: Math.random() > 0.5,
-        showComments: false,
-        commentList: []
-      }
-    })
-
-    if (page.value === 1) {
-      posts.value = mockPosts
-    } else {
-      posts.value.push(...mockPosts)
+    const params = {
+      pageNum: page.value,
+      pageSize: pageSize
     }
-
-    page.value++
-    finished.value = posts.value.length >= 30 // 模拟最多30条数据
+    
+    const res = await request.get('/biz/post/compose/list', { params })
+    
+    if (res.code === 200) {
+      const formattedPosts = res.rows.map(item => {
+        // 获取评论列表
+        const commentList = (item.comments || []).map(comment => ({
+          id: comment.id,
+          username: comment.createdBy || '匿名用户',
+          avatar: 'https://cdn.pixabay.com/photo/2016/08/20/05/38/avatar-1606916_150.png',
+          content: cleanHtmlTags(comment.content),
+          createTime: formatTime(comment.createdAt)
+        }))
+        
+        return {
+          id: item.id,
+          username: item.createdBy || '匿名用户',
+          avatar: 'https://cdn.pixabay.com/photo/2016/08/20/05/38/avatar-1606916_150.png', // 默认头像
+          content: item.content,
+          images: item.imageUrl ? item.imageUrl.split(',').map(url => import.meta.env.VITE_BASE_URL + url) : [],
+          createTime: formatTime(item.createdAt),
+          updatedAt: item.updatedAt,
+          commentsCount: (item.comments || []).length,
+          commentList: commentList
+        }
+      })
+      
+      if (page.value === 1) {
+        posts.value = formattedPosts
+      } else {
+        posts.value.push(...formattedPosts)
+      }
+      
+      page.value++
+      
+      // 判断是否加载完所有数据
+      if (res.rows.length < pageSize) {
+        finished.value = true
+      }
+    } else {
+      showToast('获取帖子列表失败')
+    }
   } catch (error) {
+    console.error('加载失败:', error)
     showToast('加载失败')
   } finally {
     loading.value = false
   }
 }
 
+// 清除HTML标签
+const cleanHtmlTags = (html) => {
+  if (!html) return ''
+  return html.replace(/<\/?[^>]+(>|$)/g, "")
+}
+
+// 格式化时间显示
+const formatTime = (dateString) => {
+  if (!dateString) return ''
+  
+  try {
+    const date = new Date(dateString)
+    return formatDistanceToNow(date, {
+      addSuffix: true,
+      locale: zhCN
+    })
+  } catch {
+    return dateString
+  }
+}
+
 // 图片上传后的处理
 const afterRead = async (file) => {
-  // TODO: 实现图片上传逻辑
-  console.log('上传图片:', file)
+  try {
+    const loadingToast = showToast({
+      type: 'loading',
+      message: '上传中...',
+      forbidClick: true,
+      duration: 0
+    })
+    
+    // 构建FormData
+    const formData = new FormData()
+    formData.append('file', file.file)
+    
+    // 上传图片
+    const res = await request.post('/common/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    
+    if (res.code === 200) {
+      // 更新文件对象，添加服务器返回的URL
+      file.url = import.meta.env.VITE_BASE_URL + res.fileName
+      file.response = { url: res.fileName }
+      loadingToast.close()
+    } else {
+      loadingToast.close()
+      showToast('上传失败')
+      // 移除上传失败的文件
+      const index = newPost.images.indexOf(file)
+      if (index !== -1) {
+        newPost.images.splice(index, 1)
+      }
+    }
+  } catch (error) {
+    console.error('上传图片失败:', error)
+    loadingToast.close()
+    showToast('上传失败')
+    // 移除上传失败的文件
+    const index = newPost.images.indexOf(file)
+    if (index !== -1) {
+      newPost.images.splice(index, 1)
+    }
+  }
 }
 
 // 提交发帖
 const submitPost = async () => {
-  if (!newPost.content && !newPost.images.length) {
+  if (!newPost.content && newPost.images.length === 0) {
     showToast('请输入内容或上传图片')
     return false
   }
 
   try {
-    // TODO: 调用后端API发布帖子
-    // await fetch('/api/posts', {
-    //   method: 'POST',
-    //   body: JSON.stringify(newPost)
-    // })
-
-    showToast('发布成功')
-    newPost.content = ''
-    newPost.images = []
-    await onRefresh()
+    showToast({
+      type: 'loading',
+      message: '发布中...',
+      forbidClick: true,
+      duration: 0
+    })
+    
+    // 构建请求数据
+    const postData = {
+      content: newPost.content,
+      imageUrl: newPost.images
+        .filter(img => img.response && img.response.url)
+        .map(img => img.response.url)
+        .join(',')
+    }
+    
+    // 调用发布接口
+    const res = await request.post('/biz/post', postData)
+    
+    closeToast()
+    if (res.code === 200) {
+      showToast('发布成功')
+      // 清空表单
+      newPost.content = ''
+      newPost.images = []
+      // 刷新列表
+      await onRefresh()
+      return true
+    } else {
+      showToast(res.msg || '发布失败')
+      return false
+    }
   } catch (error) {
+    console.error('发布失败:', error)
+    closeToast()
     showToast('发布失败')
     return false
   }
@@ -324,29 +373,17 @@ const previewImage = (images, startPosition) => {
 
 // 点赞
 const handleLike = async (post) => {
-  try {
-    // TODO: 调用后端API进行点赞
-    post.isLiked = !post.isLiked
-    post.likes += post.isLiked ? 1 : -1
-  } catch (error) {
-    showToast('操作失败')
-  }
+  post.isLiked = !post.isLiked
+  post.likes += post.isLiked ? 1 : -1
+  
+  // 点赞暂时仅做前端交互，后端API未提供点赞功能
+  showToast(post.isLiked ? '点赞成功' : '取消点赞')
 }
 
 // 处理评论点击
-const handleComment = (post) => {
+const handleComment = async (post) => {
   currentPost.value = post
-  // 如果还没有评论列表，初始化一个
-  if (!post.commentList) {
-    post.commentList = generateMockComments()
-  }
-  // 切换评论列表的显示状态
-  post.showComments = !post.showComments
-  
-  // 如果要添加新评论，显示评论框
-  if (!post.showComments) {
-    showCommentSheet.value = true
-  }
+  showCommentSheet.value = true
 }
 
 // 提交评论
@@ -357,54 +394,51 @@ const submitComment = async () => {
   }
 
   try {
-    // 模拟添加评论
-    const comment = {
-      id: Date.now(),
-      username: MOCK_USERNAMES[Math.floor(Math.random() * MOCK_USERNAMES.length)],
-      avatar: MOCK_AVATARS[Math.floor(Math.random() * MOCK_AVATARS.length)],
+    showToast({
+      type: 'loading',
+      message: '评论中...',
+      forbidClick: true,
+      duration: 0
+    })
+    
+    // 构建评论数据
+    const commentData = {
       content: newComment.value,
-      createTime: '刚刚'
-    }
-
-    if (!currentPost.value.commentList) {
-      currentPost.value.commentList = []
+      postId: currentPost.value.id
     }
     
-    currentPost.value.commentList.unshift(comment)
-    currentPost.value.comments++
-    currentPost.value.showComments = true
+    // 调用评论接口
+    const res = await request.post('/biz/comment', commentData)
     
-    showToast('评论成功')
-    newComment.value = ''
-    showCommentSheet.value = false
+    closeToast()
+    if (res.code === 200) {
+      // 添加新评论到列表
+      const newCommentObj = {
+        id: res.data?.id || Date.now(),
+        username: userStore.userInfo?.username || '我',
+        avatar: 'https://cdn.pixabay.com/photo/2016/08/20/05/38/avatar-1606916_150.png',
+        content: newComment.value,
+        createTime: '刚刚'
+      }
+      
+      if (!currentPost.value.commentList) {
+        currentPost.value.commentList = []
+      }
+      
+      currentPost.value.commentList.unshift(newCommentObj)
+      currentPost.value.commentsCount = (currentPost.value.commentsCount || 0) + 1
+      
+      showToast('评论成功')
+      newComment.value = ''
+      showCommentSheet.value = false
+    } else {
+      showToast(res.msg || '评论失败')
+    }
   } catch (error) {
+    console.error('评论失败:', error)
+    closeToast()
     showToast('评论失败')
   }
-}
-
-// 生成模拟评论数据
-const generateMockComments = () => {
-  const commentContents = [
-    '确实要注意防伪问题，感谢分享！',
-    '这个建议很实用',
-    '我前几天也买到假货了，太气人了',
-    '学习了，收藏一下',
-    '这个防伪码验证真的很重要',
-    '包装看起来很精致啊',
-    '正品就是不一样',
-    '感谢分享经验'
-  ]
-
-  return Array(Math.floor(Math.random() * 3 + 2)).fill().map(() => ({
-    id: Date.now() + Math.random(),
-    username: MOCK_USERNAMES[Math.floor(Math.random() * MOCK_USERNAMES.length)],
-    avatar: MOCK_AVATARS[Math.floor(Math.random() * MOCK_AVATARS.length)],
-    content: commentContents[Math.floor(Math.random() * commentContents.length)],
-    createTime: formatDistanceToNow(new Date(Date.now() - Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000)), {
-      addSuffix: true,
-      locale: zhCN
-    })
-  }))
 }
 
 // 关闭弹窗前的处理
@@ -415,6 +449,11 @@ const beforeDialogClose = (action) => {
   }
   return true
 }
+
+// 页面加载时获取数据
+onMounted(() => {
+  onRefresh()
+})
 </script>
 
 <style lang="less" scoped>

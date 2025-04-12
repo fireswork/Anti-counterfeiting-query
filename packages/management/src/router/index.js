@@ -100,6 +100,12 @@ const routes = [
         name: 'CommunityManagement',
         component: CommunityManagement,
         meta: { title: '社区管理' }
+      },
+      {
+        path: 'profile',
+        name: 'profile',
+        component: () => import('@/views/pages/profile.vue'),
+        meta: { title: '个人中心', hideInMenu: true }
       }
     ]
   },
@@ -108,6 +114,12 @@ const routes = [
     name: 'login',
     component: () => import('@/views/login/index.vue'),
     meta: { title: '登录' }
+  },
+  {
+    path: '/register',
+    name: 'register',
+    component: () => import('@/views/register/index.vue'),
+    meta: { title: '注册' }
   }
 ]
 

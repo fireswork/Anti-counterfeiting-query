@@ -1,10 +1,9 @@
 import { defineStore } from 'pinia'
-import axios from 'axios'
+import request from '../api/request'
 
 export const useUserStore = defineStore('user', {
   state: () => ({
     token: localStorage.getItem('token') || '',
-    user: JSON.parse(localStorage.getItem('user') || '{}')
   }),
 
   getters: {
@@ -16,8 +15,6 @@ export const useUserStore = defineStore('user', {
     setToken(token) {
       this.token = token
       localStorage.setItem('token', token)
-      // 设置axios默认header
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
     },
 
     setUser(user) {
@@ -25,12 +22,12 @@ export const useUserStore = defineStore('user', {
       localStorage.setItem('user', JSON.stringify(user))
     },
 
-    async login(phone, password) {
+    async login(username, password) {
       try {
-        const { data } = await axios.post('/api/login', { phone, password })
-        this.setToken(data.token)
-        this.setUser(data.user)
-        return data
+        const res = await request.post('/login', { username, password })
+        this.setToken(res.token)
+        this.setUser(res.data)
+        return res
       } catch (error) {
         throw error
       }
@@ -38,10 +35,10 @@ export const useUserStore = defineStore('user', {
 
     async register(userData) {
       try {
-        const { data } = await axios.post('/api/register', userData)
-        this.setToken(data.token)
-        this.setUser(data.user)
-        return data
+        const res = await request.post('/register', userData)
+        this.setToken(res.token)
+        this.setUser(res.data)
+        return res
       } catch (error) {
         throw error
       }
@@ -52,7 +49,6 @@ export const useUserStore = defineStore('user', {
       this.user = {}
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      delete axios.defaults.headers.common['Authorization']
     }
   }
 }) 

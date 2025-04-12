@@ -40,13 +40,14 @@
       @change="handleTableChange"
       :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
       rowKey="id"
+      :scroll="{ x: 1300 }"
       bordered
     >
       <template #bodyCell="{ column, record }">
         <!-- 用户信息 -->
         <template v-if="column.dataIndex === 'userInfo'">
           <div class="user-info-cell">
-            <a-avatar :src="record.avatar" />
+            <a-avatar :src="record.avatar" v-if="record.avatar"/>
             <span class="username">{{ record.username }}</span>
           </div>
         </template>
@@ -61,30 +62,26 @@
         <!-- 图片预览 -->
         <template v-if="column.dataIndex === 'images'">
           <div v-if="record.images && record.images.length" class="image-preview">
-            <a-image
-              :width="40"
-              :src="record.images[0]"
-              :preview="{
-                src: record.images[0],
-                mask: '预览'
-              }"
-            />
-            <span v-if="record.images.length > 1" class="image-count">+{{ record.images.length - 1 }}</span>
+            <template v-for="(image, index) in record.images" :key="index">
+              <a-image
+                :width="40"
+                :src="image"
+                :preview="{
+                  src: image,
+                  mask: '预览'
+                }"
+              />
+            </template>
+            <!-- <span v-if="record.images.length > 1" class="image-count">+{{ record.images.length - 1 }}</span> -->
           </div>
-          <span v-else>无图片</span>
-        </template>
-
-        <!-- 日期 -->
-        <template v-if="column.dataIndex === 'createdAt'">
-          {{ formatDate(record.createdAt) }}
         </template>
         
         <!-- 操作 -->
         <template v-if="column.dataIndex === 'action'">
           <a-space>
-            <a-button type="link" @click="handleView(record)">查看</a-button>
-            <a-divider type="vertical" />
             <a-button type="link" @click="handleEdit(record)">编辑</a-button>
+            <a-divider type="vertical" />
+            <a-button type="link" @click="handleViewComments(record)">查看评论</a-button>
             <a-divider type="vertical" />
             <a-popconfirm
               title="确定要删除该动态吗?"
@@ -122,21 +119,7 @@
         :label-col="{ span: 4 }"
         :wrapper-col="{ span: 20 }"
       >
-        <a-form-item label="发布用户">
-          <a-select
-            v-model:value="currentPost.username"
-            placeholder="请选择用户"
-            :options="userOptions"
-          />
-        </a-form-item>
-        <a-form-item label="动态内容" name="content">
-          <a-textarea 
-            v-model:value="currentPost.content" 
-            :rows="4" 
-            placeholder="请输入动态内容"
-          />
-        </a-form-item>
-        <a-form-item label="图片">
+        <a-form-item label="图片地址">
           <a-upload
             v-model:file-list="fileList"
             list-type="picture-card"
@@ -147,47 +130,69 @@
               <div style="margin-top: 8px">上传</div>
             </div>
           </a-upload>
+          <div class="upload-tip">请上传 大小不超过5MB 格式为 png/jpg/jpeg 的文件</div>
+        </a-form-item>
+        <a-form-item label="内容" name="content">
+          <a-textarea 
+            v-model:value="currentPost.content" 
+            :rows="4" 
+            placeholder="请输入动态内容"
+          />
+        </a-form-item>
+        <a-form-item label="创建时间">
+          <a-date-picker 
+            v-model:value="createdTime" 
+            format="YYYY-MM-DD" 
+            style="width: 100%"
+            placeholder="请选择创建时间"
+          />
+        </a-form-item>
+        <a-form-item label="更新时间">
+          <a-date-picker 
+            v-model:value="updatedTime" 
+            format="YYYY-MM-DD" 
+            style="width: 100%"
+            placeholder="请选择更新时间"
+          />
+        </a-form-item>
+        <a-form-item label="创建人">
+          <a-input v-model:value="currentPost.createdBy" placeholder="请输入创建人" />
+        </a-form-item>
+        <a-form-item label="更新人">
+          <a-input v-model:value="currentPost.updatedBy" placeholder="请输入更新人" />
         </a-form-item>
       </a-form>
     </a-modal>
 
-    <!-- 查看动态详情 -->
+    <!-- 查看评论模态框 -->
     <a-modal
-      v-model:open="viewModalVisible"
-      title="动态详情"
+      v-model:open="commentModalVisible"
+      title="评论列表"
       :footer="null"
       width="700px"
     >
-      <a-descriptions bordered :column="1">
-        <a-descriptions-item label="用户">
-          <div class="user-info-cell">
-            <a-avatar :src="currentPost?.avatar" />
-            <span class="username">{{ currentPost?.username }}</span>
-          </div>
-        </a-descriptions-item>
-        <a-descriptions-item label="内容">
-          {{ currentPost?.content }}
-        </a-descriptions-item>
-        <a-descriptions-item label="图片" v-if="currentPost?.images?.length">
-          <div class="image-gallery">
-            <a-image
-              v-for="(image, index) in currentPost?.images"
-              :key="index"
-              :width="100"
-              :src="image"
-              :preview="{
-                src: image,
-                mask: '查看大图'
-              }"
-              style="margin-right: 8px; margin-bottom: 8px;"
-            />
-          </div>
-        </a-descriptions-item>
-        <a-descriptions-item label="点赞数">{{ currentPost?.likes }}</a-descriptions-item>
-        <a-descriptions-item label="评论数">{{ currentPost?.comments }}</a-descriptions-item>
-        <a-descriptions-item label="发布时间">{{ formatDate(currentPost?.createdAt) }}</a-descriptions-item>
-        <a-descriptions-item label="最后更新时间">{{ formatDate(currentPost?.updatedAt) }}</a-descriptions-item>
-      </a-descriptions>
+      <a-table
+        :columns="[
+          { title: '内容', dataIndex: 'content', width: 400 },
+          { title: '创建时间', dataIndex: 'createdAt', width: 180 },
+          { title: '更新时间', dataIndex: 'updatedAt', width: 180 }
+        ]"
+        :data-source="commentList"
+        :loading="commentLoading"
+        :pagination="{
+          current: commentPagination.current,
+          pageSize: commentPagination.pageSize,
+          total: commentPagination.total,
+          showSizeChanger: true
+        }"
+        @change="handleCommentTableChange"
+        rowKey="id"
+        bordered
+      >
+      </a-table>
+      <div v-if="commentList.length === 0 && !commentLoading" style="text-align: center; padding: 20px;">
+        暂无评论数据
+      </div>
     </a-modal>
   </div>
 </template>
@@ -205,18 +210,13 @@ import {
   DeleteOutlined
 } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
+import request from '@/api/request'
 
 // 表格列定义
 const columns = [
   {
-    title: '用户信息',
-    dataIndex: 'userInfo',
-    width: 150,
-  },
-  {
     title: '内容',
     dataIndex: 'content',
-    width: 300,
   },
   {
     title: '图片',
@@ -226,13 +226,23 @@ const columns = [
   {
     title: '发布时间',
     dataIndex: 'createdAt',
-    width: 180,
-    sorter: true,
+  },
+  {
+    title: '更新时间',
+    dataIndex: 'updatedAt',
+  },
+  {
+    title: '创建人',
+    dataIndex: 'createdBy',
+  },
+  {
+    title: '更新人',
+    dataIndex: 'updatedBy',
   },
   {
     title: '操作',
     dataIndex: 'action',
-    width: 250,
+    width: 300,
     fixed: 'right'
   }
 ]
@@ -265,74 +275,20 @@ const pagination = reactive({
   showQuickJumper: true,
 })
 
-// 生成模拟数据
-const mockPosts = () => {
-  const MOCK_CONTENTS = [
-    {
-      content: '今天刚收到新买的商品，扫码验证是正品，很开心！包装很精致，商家服务也很好。',
-      images: [
-        'https://cdn.pixabay.com/photo/2019/12/14/08/36/shopping-4694470_150.jpg',
-        'https://cdn.pixabay.com/photo/2020/03/17/20/52/covid-4941846_150.jpg'
-      ]
-    },
-    {
-      content: '分享一个防伪小技巧：除了扫描防伪码，大家还要注意看包装上的激光防伪标，在光线下会有特殊效果，这个很难仿制的。',
-      images: [
-        'https://cdn.pixabay.com/photo/2018/04/24/13/23/qr-code-3346117_150.jpg'
-      ]
-    },
-    {
-      content: '最近市面上高仿太多了，建议大家一定要通过正规渠道购买，收到货后第一时间验证防伪码！',
-      images: [
-        'https://cdn.pixabay.com/photo/2017/01/13/01/22/mobile-1976104_150.jpg'
-      ]
-    },
-    {
-      content: '分享一下我的购物心得：1. 一定要选择正规渠道 2. 到货先验证防伪码 3. 对比外包装细节 4. 有疑问及时联系客服',
-      images: [
-        'https://cdn.pixabay.com/photo/2016/11/22/21/57/apparel-1850804_150.jpg',
-        'https://cdn.pixabay.com/photo/2018/01/11/21/27/laptop-3076957_150.jpg',
-        'https://cdn.pixabay.com/photo/2019/07/27/21/42/scanner-4367460_150.jpg'
-      ]
-    },
-    {
-      content: '今天帮朋友鉴定了一个包，通过咱们的防伪系统一查，果然是假货，幸好没买！大家一定要注意防骗啊！',
-      images: [
-        'https://cdn.pixabay.com/photo/2017/12/09/08/18/fraud-3007108_150.jpg'
-      ]
-    }
-  ]
+// 添加评论相关状态
+const commentModalVisible = ref(false)
+const commentLoading = ref(false)
+const commentList = ref([])
+const currentPostId = ref(null)
+const commentPagination = reactive({
+  current: 1,
+  pageSize: 10,
+  total: 0
+})
 
-  const MOCK_AVATARS = [
-    'https://cdn.pixabay.com/photo/2016/08/20/05/38/avatar-1606916_150.png',
-    'https://cdn.pixabay.com/photo/2016/11/18/23/38/child-1837375_150.png',
-    'https://cdn.pixabay.com/photo/2016/04/01/12/11/avatar-1300582_150.png',
-    'https://cdn.pixabay.com/photo/2016/03/31/19/58/avatar-1295429_150.png'
-  ]
-
-  const MOCK_USERNAMES = ['防伪小达人', '品质生活家', '正品鉴定师', '时尚达人', '精明购物狂']
-
-  const data = []
-  for (let i = 1; i <= 50; i++) {
-    const contentIndex = i % MOCK_CONTENTS.length
-    const randomContent = MOCK_CONTENTS[contentIndex]
-    const randomAvatar = MOCK_AVATARS[Math.floor(Math.random() * MOCK_AVATARS.length)]
-    const randomName = MOCK_USERNAMES[Math.floor(Math.random() * MOCK_USERNAMES.length)]
-    
-    data.push({
-      id: i,
-      username: randomName,
-      avatar: randomAvatar,
-      content: randomContent.content,
-      images: randomContent.images,
-      likes: Math.floor(Math.random() * 200 + 50),
-      comments: Math.floor(Math.random() * 30 + 10),
-      createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
-      updatedAt: new Date(Date.now() - Math.random() * 15 * 24 * 60 * 60 * 1000),
-    })
-  }
-  return data
-}
+// 日期时间对象
+const createdTime = ref(null)
+const updatedTime = ref(null)
 
 // 初始化数据
 onMounted(() => {
@@ -340,14 +296,35 @@ onMounted(() => {
 })
 
 // 加载数据
-const loadData = () => {
+const loadData = async () => {
   loading.value = true
-  // 模拟API调用
-  setTimeout(() => {
-    posts.value = mockPosts()
-    pagination.total = posts.value.length
+  try {
+    const params = {
+      pageNum: pagination.current,
+      pageSize: pagination.pageSize
+    }
+    
+    // 添加搜索条件
+    if (searchValue.value) {
+      params.content = searchValue.value
+    }
+    
+    const res = await request.get('/biz/post/list', { params })
+    if (res.code === 200) {
+      posts.value = res.rows.map(item => ({
+        ...item,
+        images: item.imageUrl ? item.imageUrl.split(',').map(url => import.meta.env.VITE_BASE_URL + url) : []
+      })) || []
+      pagination.total = res.total || 0
+    } else {
+      message.error(res.msg || '获取数据失败')
+    }
+  } catch (error) {
+    console.error('加载数据失败', error)
+    message.error('加载数据失败')
+  } finally {
     loading.value = false
-  }, 500)
+  }
 }
 
 // 刷新数据
@@ -358,45 +335,26 @@ const handleRefresh = () => {
 
 // 筛选后的帖子列表
 const filteredPosts = computed(() => {
-  let result = [...posts.value]
-  
-  // 搜索过滤
-  if (searchValue.value) {
-    const keyword = searchValue.value.toLowerCase()
-    result = result.filter(item => 
-      item.content.toLowerCase().includes(keyword) || 
-      item.username.toLowerCase().includes(keyword)
-    )
-  }
-  
-  return result
+  return posts.value
 })
 
 // 搜索处理
 const onSearch = () => {
   pagination.current = 1
+  loadData()
 }
 
 // 筛选变化处理
 const onFilterChange = () => {
   pagination.current = 1
+  loadData()
 }
 
 // 表格变化处理
 const handleTableChange = (pag, filters, sorter) => {
   pagination.current = pag.current
   pagination.pageSize = pag.pageSize
-  
-  // 处理排序
-  if (sorter.field && sorter.order) {
-    const order = sorter.order === 'ascend' ? 1 : -1
-    posts.value.sort((a, b) => {
-      if (sorter.field === 'createdAt') {
-        return order * (new Date(a[sorter.field]) - new Date(b[sorter.field]))
-      }
-      return 0
-    })
-  }
+  loadData()
 }
 
 // 选择变化处理
@@ -417,19 +375,22 @@ const handleBatchDelete = () => {
 const confirmBatchDelete = async () => {
   try {
     batchDeleteLoading.value = true
-    // TODO: 调用批量删除API
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    const ids = selectedRowKeys.value.join(',')
+    const res = await request.delete(`/biz/post/${ids}`)
     
-    // 从列表中移除被删除的项
-    posts.value = posts.value.filter(item => !selectedRowKeys.value.includes(item.id))
-    
-    message.success('批量删除成功')
-    selectedRowKeys.value = []
-    batchDeleteModalVisible.value = false
+    if (res.code === 200) {
+      message.success('批量删除成功')
+      selectedRowKeys.value = []
+      loadData()
+    } else {
+      message.error(res.msg || '批量删除失败')
+    }
   } catch (error) {
+    console.error('批量删除失败', error)
     message.error('批量删除失败')
   } finally {
     batchDeleteLoading.value = false
+    batchDeleteModalVisible.value = false
   }
 }
 
@@ -439,42 +400,80 @@ const showAddModal = () => {
   currentPost.value = {
     id: null,
     content: '',
-    images: [],
-    status: 1
+    imageUrl: '',
+    createdBy: '',
+    updatedBy: ''
   }
+  fileList.value = []
+  createdTime.value = null
+  updatedTime.value = null
   postModalVisible.value = true
-}
-
-// 查看详情
-const handleView = (record) => {
-  currentPost.value = { ...record }
-  viewModalVisible.value = true
 }
 
 // 编辑动态
-const handleEdit = (record) => {
-  isEdit.value = true
-  currentPost.value = { ...record }
-  postModalVisible.value = true
-}
+const handleEdit = async (record) => {
+  try {
+    loading.value = true
+    const res = await request.get(`/biz/post/${record.id}`)
+    if (res.code === 200) {
+      isEdit.value = true
+      currentPost.value = res.data
 
-// 删除动态
-const handleDelete = (record) => {
-  // 从列表中移除
-  const index = posts.value.findIndex(item => item.id === record.id)
-  if (index !== -1) {
-    posts.value.splice(index, 1)
-    message.success('删除成功')
+      if (currentPost.value.imageUrl) {
+        const imageUrls = currentPost.value.imageUrl.split(',')
+        fileList.value.push(...imageUrls.map((url, index) => ({
+          uid: `-${index}`,
+          name: `图片${index + 1}`,
+          status: 'done',
+          url: import.meta.env.VITE_BASE_URL + url,
+        })))
+      }
+      
+      // 设置日期对象
+      if (currentPost.value.createdAt) {
+        createdTime.value = dayjs(currentPost.value.createdAt)
+      }
+      if (currentPost.value.updatedAt) {
+        updatedTime.value = dayjs(currentPost.value.updatedAt)
+      }
+      
+      postModalVisible.value = true
+    } else {
+      message.error(res.msg || '获取详情失败')
+    }
+  } catch (error) {
+    console.error('获取详情失败', error)
+    message.error('获取详情失败')
+  } finally {
+    loading.value = false
   }
 }
 
-// 用户选项
+// 删除动态
+const handleDelete = async (record) => {
+  try {
+    const res = await request.delete(`/biz/post/${record.id}`)
+    if (res.code === 200) {
+      message.success('删除成功')
+      loadData()
+    } else {
+      message.error(res.msg || '删除失败')
+    }
+  } catch (error) {
+    console.error('删除失败', error)
+    message.error('删除失败')
+  }
+}
+
+// 用户选项 - 实际项目中应该从用户接口获取
 const userOptions = computed(() => {
-  const uniqueUsers = [...new Set(posts.value.map(post => post.username))]
-  return uniqueUsers.map(username => ({
-    value: username,
-    label: username
-  }))
+  return [
+    { value: '系统管理员', label: '系统管理员' },
+    { value: '防伪小达人', label: '防伪小达人' },
+    { value: '品质生活家', label: '品质生活家' },
+    { value: '正品鉴定师', label: '正品鉴定师' },
+    { value: '时尚达人', label: '时尚达人' },
+  ]
 })
 
 // 文件列表
@@ -482,18 +481,55 @@ const fileList = ref([])
 
 // 上传前处理
 const beforeUpload = (file) => {
-  // 这里可以验证文件类型、大小等
-  // 在实际项目中，应该调用API上传文件
-  const reader = new FileReader()
-  reader.readAsDataURL(file)
-  reader.onload = () => {
-    fileList.value = [...fileList.value, {
-      uid: Date.now(),
-      name: file.name,
-      status: 'done',
-      url: reader.result
-    }]
+  // 校验文件类型
+  const isImage = file.type === 'image/png' || file.type === 'image/jpeg' || file.type === 'image/jpg'
+  if (!isImage) {
+    message.error('只能上传png/jpg/jpeg格式的图片!')
+    return false
   }
+  
+  // 校验文件大小
+  const isLt5M = file.size / 1024 / 1024 < 5
+  if (!isLt5M) {
+    message.error('图片大小不能超过 5MB!')
+    return false
+  }
+  
+  // 创建表单数据并上传
+  const uploadFormData = new FormData()
+  uploadFormData.append('file', file)
+  
+  // 上传文件前先清除列表以避免重复
+  loading.value = true
+  
+  request
+    .post('/common/upload', uploadFormData)
+    .then((res) => {
+      if (res.code === 200) {
+        // 上传成功后，清除之前的文件列表，只保留当前上传的文件
+        const fileName = res.fileName
+        const url = import.meta.env.VITE_BASE_URL + fileName
+        
+        fileList.value = fileList.value.filter(item => item.url)
+        fileList.value.push({
+          uid: Date.now() + Math.random().toString(36).substring(2, 8),
+          name: file.name,
+          status: 'done',
+          url,
+          response: { url: fileName }
+        })
+        console.log(fileList.value)
+      } else {
+        message.error(res.msg || '上传失败')
+      }
+      loading.value = false
+    })
+    .catch((err) => {
+      console.error('上传失败:', err)
+      message.error('上传失败')
+      loading.value = false
+    })
+  
   return false // 阻止默认上传
 }
 
@@ -506,46 +542,81 @@ const handlePostSubmit = async () => {
       return
     }
     
-    if (!currentPost.value.username) {
-      message.error('请选择用户')
-      return
+    console.log(fileList.value, 222)
+    const postData = {
+      ...currentPost.value,
+      imageUrl: fileList.value.map(item => item.url.replace(import.meta.env.VITE_BASE_URL, '')).join(',')
     }
     
-    // TODO: 调用API保存动态
-    await new Promise(resolve => setTimeout(resolve, 800))
+    // 处理日期
+    if (createdTime.value) {
+      postData.createdAt = dayjs(createdTime.value).format('YYYY-MM-DD')
+    }
     
+    if (updatedTime.value) {
+      postData.updatedAt = dayjs(updatedTime.value).format('YYYY-MM-DD')
+    }
+    
+    let res
     if (isEdit.value) {
       // 编辑现有动态
-      const index = posts.value.findIndex(item => item.id === currentPost.value.id)
-      if (index !== -1) {
-        posts.value[index] = {
-          ...posts.value[index],
-          ...currentPost.value,
-          images: fileList.value.map(file => file.url || file.response?.url),
-          updatedAt: new Date()
-        }
-      }
-      message.success('编辑成功')
+      res = await request.put('/biz/post', postData)
     } else {
       // 添加新动态
-      const newPost = {
-        id: posts.value.length + 1,
-        ...currentPost.value,
-        avatar: 'https://cdn.pixabay.com/photo/2016/08/20/05/38/avatar-1606916_150.png',
-        images: fileList.value.map(file => file.url || file.response?.url),
-        likes: 0,
-        comments: 0,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-      posts.value.unshift(newPost)
-      message.success('添加成功')
+      res = await request.post('/biz/post', postData)
     }
     
-    postModalVisible.value = false
+    if (res.code === 200) {
+      message.success(isEdit.value ? '编辑成功' : '添加成功')
+      postModalVisible.value = false
+      loadData()
+      fileList.value = [] // 清空文件列表
+    } else {
+      message.error(res.msg || (isEdit.value ? '编辑失败' : '添加失败'))
+    }
   } catch (error) {
+    console.error('提交失败', error)
     message.error('提交失败')
   }
+}
+
+// 查看评论
+const handleViewComments = async (record) => {
+  currentPostId.value = record.id
+  commentModalVisible.value = true
+  await fetchComments(record.id)
+}
+
+// 获取评论列表
+const fetchComments = async (postId) => {
+  commentLoading.value = true
+  try {
+    const params = {
+      pageNum: commentPagination.current,
+      pageSize: commentPagination.pageSize,
+      postId
+    }
+    
+    const res = await request.get('/biz/comment/list', { params })
+    if (res.code === 200) {
+      commentList.value = res.rows || []
+      commentPagination.total = res.total || 0
+    } else {
+      message.error(res.msg || '获取评论失败')
+    }
+  } catch (error) {
+    console.error('获取评论失败', error)
+    message.error('获取评论失败')
+  } finally {
+    commentLoading.value = false
+  }
+}
+
+// 评论分页变更
+const handleCommentTableChange = (pagination) => {
+  commentPagination.current = pagination.current
+  commentPagination.pageSize = pagination.pageSize
+  fetchComments(currentPostId.value)
 }
 </script>
 
@@ -603,6 +674,12 @@ const handlePostSubmit = async () => {
   .image-gallery {
     display: flex;
     flex-wrap: wrap;
+  }
+  
+  .upload-tip {
+    color: rgba(0, 0, 0, 0.45);
+    font-size: 12px;
+    margin-top: 8px;
   }
 }
 </style> 

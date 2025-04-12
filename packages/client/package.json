@@ -1,5 +1,5 @@
 {
-  "name": "client",
+  "name": "@anti-counterfeiting/client",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -24,5 +24,6 @@
     "less-loader": "^12.2.0",
     "postcss-px-to-viewport": "^1.1.1",
     "vite": "^6.2.0"
-  }
+  },
+  "packageManager": "pnpm@8.15.4+sha1.c85a4305534f76d461407b59277b954bac97b5c4"
 }

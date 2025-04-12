@@ -10,11 +10,11 @@
       <h2>登录</h2>
       
       <van-field
-        v-model="phone"
-        name="phone"
-        label="手机号"
-        placeholder="请输入手机号"
-        :rules="[{ required: true, message: '请输入手机号' }]"
+        v-model="username"
+        name="username"
+        label="用户名"
+        placeholder="请输入用户名"
+        :rules="[{ required: true, message: '请输入用户名' }]"
       />
       
       <van-field
@@ -55,23 +55,24 @@ import { useUserStore } from '../stores/user'
 const router = useRouter()
 const userStore = useUserStore()
 
-const phone = ref('')
+const username = ref('')
 const password = ref('')
 const loading = ref(false)
 
 const onSubmit = async () => {
   try {
     loading.value = true
-    await userStore.login(phone.value, password.value)
+    await userStore.login(username.value, password.value)
     showToast({
       type: 'success',
       message: '登录成功'
     })
     router.push('/')
   } catch (error) {
+    console.error('登录失败:', error)
     showToast({
       type: 'fail',
-      message: error.response?.data?.message || '登录失败'
+      message: error.message || '登录失败，请检查用户名和密码'
     })
   } finally {
     loading.value = false

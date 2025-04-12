@@ -1,7 +1,7 @@
 <template>
-  <div class="login-container">
-    <div class="login-form-wrapper">
-      <div class="login-header">
+  <div class="register-container">
+    <div class="register-form-wrapper">
+      <div class="register-header">
         <img src="/logo.svg" alt="Logo" class="logo" />
         <h1>管理系统</h1>
       </div>
@@ -10,7 +10,7 @@
         ref="formRef"
         :model="formData"
         :rules="rules"
-        class="login-form"
+        class="register-form"
         @finish="handleFinish"
       >
         <a-form-item name="username">
@@ -32,6 +32,16 @@
             <template #prefix><lock-outlined /></template>
           </a-input-password>
         </a-form-item>
+        
+        <a-form-item name="confirmPassword">
+          <a-input-password
+            v-model:value="formData.confirmPassword"
+            placeholder="确认密码"
+            size="large"
+          >
+            <template #prefix><lock-outlined /></template>
+          </a-input-password>
+        </a-form-item>
 
         <a-form-item>
           <a-button 
@@ -39,15 +49,15 @@
             html-type="submit" 
             size="large" 
             :loading="loading" 
-            class="login-form-button"
+            class="register-form-button"
           >
-            登录
+            注册
           </a-button>
         </a-form-item>
         
-        <div class="login-form-register">
-          <span>还没有账号？</span>
-          <a @click="goToRegister">立即注册</a>
+        <div class="register-form-login">
+          <span>已有账号？</span>
+          <a @click="goToLogin">返回登录</a>
         </div>
       </a-form>
     </div>
@@ -66,29 +76,42 @@ const loading = ref(false)
 const formRef = ref(null)
 const formData = reactive({
   username: '',
-  password: ''
+  password: '',
+  confirmPassword: ''
 })
 
+const validateConfirmPassword = async (rule, value) => {
+  if (!value) {
+    return Promise.reject('请确认密码')
+  }
+  if (value !== formData.password) {
+    return Promise.reject('两次输入的密码不一致')
+  }
+  return Promise.resolve()
+}
 
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  confirmPassword: [{ validator: validateConfirmPassword, trigger: 'blur' }]
 }
 
-const goToRegister = () => {
-  router.push('/register')
+const goToLogin = () => {
+  router.push('/login')
 }
 
 const handleFinish = async (values) => {
   loading.value = true
   
   try {
-    const res = await request.post('/login', values)
-    message.success('登录成功')
-    router.push('/')
-    localStorage.setItem('token', res.token)
+    await request.post('/register', {
+      username: values.username,
+      password: values.password
+    })
+    message.success('注册成功')
+    router.push('/login')
   } catch (error) {
-    message.error('登录失败，请检查用户名和密码')
+    message.error('注册失败，请稍后再试')
   } finally {
     loading.value = false
   }
@@ -96,7 +119,7 @@ const handleFinish = async (values) => {
 </script>
 
 <style scoped lang="less">
-.login-container {
+.register-container {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -108,7 +131,7 @@ const handleFinish = async (values) => {
   background-size: 100%;
 }
 
-.login-form-wrapper {
+.register-form-wrapper {
   width: 380px;
   padding: 40px;
   background: #fff;
@@ -116,7 +139,7 @@ const handleFinish = async (values) => {
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
-.login-header {
+.register-header {
   text-align: center;
   margin-bottom: 40px;
   
@@ -134,12 +157,12 @@ const handleFinish = async (values) => {
   }
 }
 
-.login-form {
-  .login-form-button {
+.register-form {
+  .register-form-button {
     width: 100%;
   }
   
-  .login-form-register {
+  .register-form-login {
     text-align: center;
     margin-top: 16px;
     

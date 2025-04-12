@@ -1,126 +1,155 @@
 <template>
   <div class="products-list">
     <h1>商品管理</h1>
-    
+
     <!-- 搜索栏 -->
     <div class="search-bar">
       <a-space>
         <a-input-search
-          v-model:value="searchValue"
+          v-model:value="queryParams.productName"
           placeholder="商品名称搜索"
           style="width: 200px"
-          @search="onSearch"
+          @search="handleQuery"
           allowClear
         />
         <a-select
-          v-model:value="categoryFilter"
+          v-model:value="queryParams.productTypeId"
           placeholder="商品分类"
           style="width: 150px"
-          @change="onFilterChange"
+          @change="handleQuery"
           allowClear
         >
           <a-select-option value="">全部分类</a-select-option>
-          <a-select-option v-for="category in categories" :key="category.value" :value="category.value">
-            {{ category.label }}
+          <a-select-option
+            v-for="category in categoryOptions"
+            :key="category.dictCode"
+            :value="category.dictValue"
+          >
+            {{ category.dictLabel }}
           </a-select-option>
         </a-select>
         <a-select
-          v-model:value="statusFilter"
+          v-model:value="queryParams.productStatus"
           placeholder="商品状态"
           style="width: 150px"
-          @change="onFilterChange"
+          @change="handleQuery"
           allowClear
         >
           <a-select-option value="">全部状态</a-select-option>
-          <a-select-option value="1">已出库</a-select-option>
-          <a-select-option value="0">未出库</a-select-option>
-          <a-select-option value="2">待审核</a-select-option>
+          <a-select-option value="0">未上架</a-select-option>
+          <a-select-option value="1">已上架</a-select-option>
         </a-select>
-        <a-button type="primary" @click="handleSearch">
+        <a-button type="primary" @click="handleQuery">
           <template #icon><search-outlined /></template>
           查询
         </a-button>
-        <a-button @click="handleReset">
+        <a-button @click="resetQuery">
           <template #icon><reload-outlined /></template>
           重置
         </a-button>
       </a-space>
-      <a-button type="primary" @click="showAddModal">
-        <plus-outlined />添加商品
-      </a-button>
+      <div>
+        <a-space>
+          <a-button type="primary" @click="showAddModal">
+            <plus-outlined />添加商品
+          </a-button>
+          <a-popconfirm
+            title="确定要批量删除选中的商品吗?"
+            ok-text="确定"
+            cancel-text="取消"
+            @confirm="handleBatchDelete"
+          >
+            <a-button
+              type="primary"
+              danger
+              @click="handleBatchDelete"
+              :disabled="selectedRowKeys.length === 0"
+            >
+            <delete-outlined />批量删除
+            </a-button>
+          </a-popconfirm>
+        </a-space>
+      </div>
     </div>
-
     <!-- 商品列表 -->
     <a-table
       :columns="columns"
-      :data-source="filteredProducts"
+      :data-source="productList"
       :loading="loading"
-      :pagination="pagination"
-      @change="handleTableChange"
+      :pagination="{
+        pageSize: queryParams.pageSize,
+        current: queryParams.pageNum,
+        total: total,
+        showSizeChanger: true,
+        showQuickJumper: true,
+        showTotal: (total) => `共 ${total} 条`,
+        onChange: handlePageChange,
+        onShowSizeChange: handleSizeChange,
+      }"
       rowKey="id"
       :scroll="{ x: 1300 }"
-      :row-selection="{ selectedRowKeys: selectedRowKeys, onChange: onSelectChange }"
+      :row-selection="{
+        selectedRowKeys: selectedRowKeys,
+        onChange: onSelectChange,
+      }"
       bordered
     >
       <!-- 表格列配置 -->
       <template #bodyCell="{ column, record }">
         <!-- 商品图片和名称列 -->
-        <template v-if="column.dataIndex === 'productInfo'">
-          <div class="product-info">
-            <img :src="record.image" :alt="record.name" class="product-image" />
-            <span class="product-name">{{ record.name }}</span>
-          </div>
+        <template v-if="column.dataIndex === 'productImage'">
+          <img
+            :src="record.productImage"
+            :alt="record.productName"
+            class="product-image"
+            @click="handlePreviewImg(record.productImage)"
+          />
         </template>
-        
+
+        <!-- 商品分类 -->
+        <template v-if="column.dataIndex === 'productType'">
+          {{ record.productType }}
+        </template>
+
         <!-- 商品状态 -->
-        <template v-if="column.dataIndex === 'status'">
-          <a-tag :color="record.status === 1 ? 'green' : 'orange'">
-            {{ record.status === 1 ? '已出库' : '未出库' }}
+        <template v-if="column.dataIndex === 'productStatus'">
+          <a-tag :color="record.productStatus === '1' ? 'green' : 'orange'">
+            {{ record.productStatus === "1" ? "已上架" : "未上架" }}
           </a-tag>
         </template>
-        
+
+        <!-- 日期格式化 -->
+        <template
+          v-if="
+            column.dataIndex === 'createdAt' || column.dataIndex === 'updatedAt'
+          "
+        >
+          {{ formatDateTime(record[column.dataIndex]) }}
+        </template>
+
         <!-- 操作列 -->
         <template v-if="column.dataIndex === 'action'">
           <a-space>
             <a @click="handleEdit(record)">编辑</a>
             <a-divider type="vertical" />
+            <a @click="handleView(record)">查看</a>
             <a-divider type="vertical" />
-            <a @click="handleBatchManage(record)">批次管理</a>
+            <a-popconfirm
+              title="确定要删除该商品吗?"
+              ok-text="确定"
+              cancel-text="取消"
+              @confirm="handleDelete(record.id)"
+            >
+              <a>删除</a>
+            </a-popconfirm>
             <a-divider type="vertical" />
-            <a-dropdown>
-              <a class="ant-dropdown-link" @click.prevent>
-                更多 <down-outlined />
-              </a>
-              <template #overlay>
-                <a-menu>
-                  <a-menu-item key="1" @click="handleView(record)">查看详情</a-menu-item>
-                  <a-menu-item key="2" @click="handleDelete(record)">删除</a-menu-item>
-                  <a-menu-item key="3" @click="handleStatusChange(record)">
-                    {{ record.status === 1 ? '下架' : '上架' }}
-                  </a-menu-item>
-                </a-menu>
-              </template>
-            </a-dropdown>
+            <a @click="handleStatusChange(record)">
+              {{ record.productStatus === "1" ? "下架" : "上架" }}
+            </a>
           </a-space>
         </template>
       </template>
     </a-table>
-
-    <!-- 批量操作工具栏 -->
-    <div v-show="selectedRowKeys.length" class="batch-operation-bar">
-      <span>已选择 {{ selectedRowKeys.length }} 项</span>
-      <a-space>
-        <a-button type="primary" @click="handleBatchDelete">
-          批量删除
-        </a-button>
-        <a-button @click="handleBatchStatus(1)">
-          批量出库
-        </a-button>
-        <a-button @click="handleBatchStatus(0)">
-          批量入库
-        </a-button>
-      </a-space>
-    </div>
 
     <!-- 添加/编辑商品弹窗 -->
     <a-modal
@@ -136,45 +165,37 @@
         :label-col="{ span: 4 }"
         :wrapper-col="{ span: 18 }"
       >
-        <a-form-item label="商品名称" name="name">
-          <a-input v-model:value="formData.name" placeholder="请输入商品名称" />
+        <a-form-item label="商品名称" name="productName">
+          <a-input
+            v-model:value="formData.productName"
+            placeholder="请输入商品名称"
+          />
         </a-form-item>
-        
-        <a-form-item label="商品分类" name="category">
-          <a-select v-model:value="formData.category" placeholder="请选择商品分类">
-            <a-select-option v-for="category in categories" :key="category.value" :value="category.value">
-              {{ category.label }}
+
+        <a-form-item label="商品分类" name="productTypeId">
+          <a-select
+            v-model:value="formData.productTypeId"
+            placeholder="请选择商品分类"
+            @change="handleTypeChange"
+          >
+            <a-select-option
+              v-for="category in categoryOptions"
+              :key="category.dictCode"
+              :value="category.dictValue"
+            >
+              {{ category.dictLabel }}
             </a-select-option>
           </a-select>
         </a-form-item>
-        
-        <a-form-item label="商品价格" name="price">
-          <a-input-number 
-            v-model:value="formData.price" 
-            :min="0" 
-            :precision="2" 
-            style="width: 100%"
-            placeholder="请输入商品价格" 
-          />
-        </a-form-item>
-        
-        <a-form-item label="库存数量" name="stock">
-          <a-input-number 
-            v-model:value="formData.stock" 
-            :min="0" 
-            style="width: 100%"
-            placeholder="请输入库存数量" 
-          />
-        </a-form-item>
-        
-        <a-form-item label="商品状态" name="status">
-          <a-radio-group v-model:value="formData.status">
-            <a-radio :value="1">已出库</a-radio>
-            <a-radio :value="0">未出库</a-radio>
+
+        <a-form-item label="商品状态" name="productStatus">
+          <a-radio-group v-model:value="formData.productStatus">
+            <a-radio value="1">上架</a-radio>
+            <a-radio value="0">下架</a-radio>
           </a-radio-group>
         </a-form-item>
-        
-        <a-form-item label="商品图片" name="image">
+
+        <a-form-item label="商品图片" name="productImage">
           <a-upload
             v-model:file-list="fileList"
             list-type="picture-card"
@@ -187,23 +208,19 @@
             </div>
           </a-upload>
         </a-form-item>
-        
-        <a-form-item label="商品描述" name="description">
-          <a-textarea 
-            v-model:value="formData.description" 
-            :rows="4" 
-            placeholder="请输入商品描述"
+
+        <a-form-item label="备注" name="remark">
+          <a-textarea
+            v-model:value="formData.remark"
+            :rows="4"
+            placeholder="请输入备注信息"
           />
         </a-form-item>
       </a-form>
     </a-modal>
 
     <!-- 图片预览 -->
-    <a-modal
-      v-model:open="previewVisible"
-      :title="previewTitle"
-      :footer="null"
-    >
+    <a-modal v-model:open="previewVisible" :title="previewTitle" :footer="null">
       <img alt="预览图片" style="width: 100%" :src="previewImage" />
     </a-modal>
 
@@ -215,586 +232,502 @@
       width="700px"
     >
       <a-descriptions bordered :column="1">
-        <a-descriptions-item label="商品名称">{{ currentProduct.name }}</a-descriptions-item>
-        <a-descriptions-item label="商品分类">
-          {{ getCategoryLabel(currentProduct.category) }}
-        </a-descriptions-item>
-        <a-descriptions-item label="商品价格">¥{{ currentProduct.price?.toFixed(2) }}</a-descriptions-item>
-        <a-descriptions-item label="库存数量">{{ currentProduct.stock }}</a-descriptions-item>
+        <a-descriptions-item label="商品名称">{{
+          currentProduct.productName
+        }}</a-descriptions-item>
+        <a-descriptions-item label="商品分类">{{
+          currentProduct.productType
+        }}</a-descriptions-item>
         <a-descriptions-item label="商品状态">
-          <a-tag :color="currentProduct.status === 1 ? 'green' : 'orange'">
-            {{ currentProduct.status === 1 ? '已出库' : '未出库' }}
+          <a-tag
+            :color="currentProduct.productStatus === '1' ? 'green' : 'orange'"
+          >
+            {{ currentProduct.productStatus === "1" ? "已上架" : "未上架" }}
           </a-tag>
         </a-descriptions-item>
         <a-descriptions-item label="商品图片">
-          <img :src="currentProduct.image" alt="商品图片" class="product-detail-image" />
+          <img
+            :src="currentProduct.productImage"
+            alt="商品图片"
+            class="product-detail-image"
+          />
         </a-descriptions-item>
-        <a-descriptions-item label="创建时间">{{ formatDate(currentProduct.createdAt) }}</a-descriptions-item>
-        <a-descriptions-item label="最后更新时间">{{ formatDate(currentProduct.updatedAt) }}</a-descriptions-item>
-        <a-descriptions-item label="商品描述">{{ currentProduct.description }}</a-descriptions-item>
+        <a-descriptions-item label="创建时间">{{
+          formatDateTime(currentProduct.createdAt)
+        }}</a-descriptions-item>
+        <a-descriptions-item label="更新时间">{{
+          formatDateTime(currentProduct.updatedAt)
+        }}</a-descriptions-item>
+        <a-descriptions-item label="备注">{{
+          currentProduct.remark || "--"
+        }}</a-descriptions-item>
       </a-descriptions>
-    </a-modal>
-
-    <!-- 生成防伪码弹窗 -->
-    <a-modal
-      v-model:open="codeModalVisible"
-      title="生成防伪码"
-      @ok="handleCodeGenerate"
-      :confirmLoading="codeGenerating"
-    >
-      <a-form
-        :model="codeForm"
-        :label-col="{ span: 6 }"
-        :wrapper-col="{ span: 16 }"
-      >
-        <a-form-item label="商品名称">
-          <span>{{ currentProduct.name }}</span>
-        </a-form-item>
-        <a-form-item label="生成数量" name="quantity">
-          <a-input-number
-            v-model:value="codeForm.quantity"
-            :min="1"
-            :max="10000"
-            style="width: 100%"
-          />
-        </a-form-item>
-        <a-form-item label="批次编号" name="batchNo">
-          <a-input v-model:value="codeForm.batchNo" placeholder="请输入批次编号" />
-        </a-form-item>
-        <a-form-item label="生产日期" name="productionDate">
-          <a-date-picker
-            v-model:value="codeForm.productionDate"
-            style="width: 100%"
-          />
-        </a-form-item>
-        <a-form-item label="有效期" name="expiryDate">
-          <a-date-picker
-            v-model:value="codeForm.expiryDate"
-            style="width: 100%"
-          />
-        </a-form-item>
-      </a-form>
-    </a-modal>
-
-    <!-- 批次管理弹窗 -->
-    <a-modal
-      v-model:open="batchModalVisible"
-      title="批次管理"
-      :footer="null"
-      width="800px"
-    >
-      <a-table
-        :columns="batchColumns"
-        :data-source="batchList"
-        :loading="batchLoading"
-        :pagination="{ pageSize: 5 }"
-        bordered
-      >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.dataIndex === 'status'">
-            <a-tag :color="getBatchStatusColor(record.status)">
-              {{ getBatchStatusText(record.status) }}
-            </a-tag>
-          </template>
-          <template v-if="column.dataIndex === 'action'">
-            <a-space>
-              <a @click="handleBatchDetail(record)">查看详情</a>
-            </a-space>
-          </template>
-        </template>
-      </a-table>
     </a-modal>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { message } from 'ant-design-vue'
+import { ref, reactive, onMounted } from "vue";
+import { message } from "ant-design-vue";
 import {
   PlusOutlined,
   SearchOutlined,
   ReloadOutlined,
-  DownOutlined
-} from '@ant-design/icons-vue'
-import dayjs from 'dayjs'
-import {
-  getProducts,
-  createProduct,
-  updateProduct,
-  deleteProduct,
-  onShelfProduct,
-  offShelfProduct,
-  uploadProductImage
-} from '@/api/product'
+  DownOutlined,
+} from "@ant-design/icons-vue";
+import request from "@/api/request";
+import dayjs from "dayjs";
 
 // 表格列定义
 const columns = [
   {
-    title: '商品图片/商品名称',
-    dataIndex: 'productInfo',
-    width: '300px',
+    title: "商品图片",
+    dataIndex: "productImage",
   },
   {
-    title: '商品类型',
-    dataIndex: 'category',
-    width: '150px',
+    title: "商品名称",
+    dataIndex: "productName",
   },
   {
-    title: '商品ID',
-    dataIndex: 'id',
-    width: '150px',
+    title: "商品类型",
+    dataIndex: "productType",
+    width: "150px",
   },
   {
-    title: '商品状态',
-    dataIndex: 'status',
-    width: '120px',
+    title: "状态",
+    dataIndex: "productStatus",
+    width: "100px",
   },
   {
-    title: '验证次数',
-    dataIndex: 'verificationCount',
-    width: '100px',
+    title: "创建时间",
+    dataIndex: "createdAt",
+    width: "180px",
   },
   {
-    title: '创建时间',
-    dataIndex: 'createdAt',
-    width: '180px',
+    title: "更新时间",
+    dataIndex: "updatedAt",
+    width: "180px",
   },
   {
-    title: '更新时间',
-    dataIndex: 'updatedAt',
-    width: '180px',
+    title: "操作",
+    dataIndex: "action",
+    width: "250px",
+    fixed: "right",
   },
-  {
-    title: '操作',
-    dataIndex: 'action',
-    width: '250px',
-    fixed: 'right',
-  },
-]
-
-// 商品分类选项
-const categories = [
-  { label: '数码电子', value: 'electronics' },
-  { label: '服装服饰', value: 'clothing' },
-  { label: '食品饮料', value: 'food' },
-  { label: '美妆护肤', value: 'beauty' },
-  { label: '家居用品', value: 'home' }
-]
-
-// 获取分类标签
-const getCategoryLabel = (value) => {
-  const category = categories.find(c => c.value === value)
-  return category ? category.label : '未知分类'
-}
-
-// 格式化日期
-const formatDate = (date) => {
-  if (!date) return ''
-  return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
-}
+];
 
 // 状态
-const loading = ref(false)
-const searchValue = ref('')
-const categoryFilter = ref('')
-const statusFilter = ref('')
-const selectedRowKeys = ref([])
-const pagination = reactive({
-  current: 1,
+const loading = ref(false);
+const productList = ref([]);
+const total = ref(0);
+const selectedRowKeys = ref([]);
+const categoryOptions = ref([]);
+
+// 查询参数
+const queryParams = reactive({
+  pageNum: 1,
   pageSize: 10,
-  total: 0,
-})
+  productName: "",
+  productTypeId: "",
+  productStatus: "",
+});
 
-// 模拟数据
-const products = ref([])
+// 初始化
 onMounted(() => {
-  fetchProducts()
-})
+  fetchCategoryOptions();
+  fetchProductList();
+});
 
-// 获取商品数据
-const fetchProducts = async () => {
-  loading.value = true
+const handlePreviewImg = (url) => {
+  console.log(url, 2111);
+  previewImage.value = url;
+  previewVisible.value = true;
+};
+
+// 获取商品分类选项
+const fetchCategoryOptions = async () => {
   try {
-    // 模拟数据加载
-    setTimeout(() => {
-      const mockData = []
-      for (let i = 1; i <= 50; i++) {
-        mockData.push({
-          id: i,
-          name: `商品名称 ${i}`,
-          category: categories[i % 5].value,
-          price: Math.round(Math.random() * 1000) / 100 + 10,
-          stock: Math.floor(Math.random() * 100) + 1,
-          status: i % 3 === 0 ? 0 : 1,
-          image: `https://picsum.photos/id/${i + 10}/100/100`,
-          description: `这是商品${i}的详细描述信息，包含了商品的各种特性和使用方法。`,
-          createdAt: new Date(Date.now() - Math.floor(Math.random() * 10000000000)),
-          updatedAt: new Date(Date.now() - Math.floor(Math.random() * 1000000000)),
-        })
-      }
-      products.value = mockData
-      pagination.total = mockData.length
-      loading.value = false
-    }, 500)
+    const params = {
+      pageNum: 1,
+      pageSize: 100,
+      dictType: "biz_product_type",
+    };
+    const res = await request.get("/system/dict/data/list", { params });
+    categoryOptions.value = res.rows || [];
   } catch (error) {
-    message.error('获取商品列表失败')
-    loading.value = false
+    console.error("获取商品分类失败", error);
+    message.error("获取商品分类失败");
   }
-}
+};
 
-// 过滤后的商品列表
-const filteredProducts = computed(() => {
-  let result = [...products.value]
-  
-  // 按名称搜索
-  if (searchValue.value) {
-    result = result.filter(item => 
-      item.name.toLowerCase().includes(searchValue.value.toLowerCase())
-    )
+// 构建查询参数
+const buildQueryParams = () => {
+  const params = { ...queryParams };
+  // 移除空值参数
+  Object.keys(params).forEach((key) => {
+    if (params[key] === "") {
+      delete params[key];
+    }
+  });
+  return params;
+};
+
+// 获取商品列表
+const fetchProductList = async () => {
+  loading.value = true;
+  try {
+    const params = buildQueryParams();
+    const res = await request.get("/biz/product/list", { params });
+    if (res && res.rows) {
+      productList.value =
+        res.rows?.map((item) => ({
+          ...item,
+          productImage: import.meta.env.VITE_BASE_URL + item.productImage,
+        })) || [];
+      total.value = res.total || 0;
+    } else {
+      productList.value = [];
+      total.value = 0;
+      message.error("获取商品列表失败");
+    }
+  } catch (error) {
+    console.error("获取商品列表失败", error);
+    message.error("获取商品列表失败");
+    productList.value = [];
+    total.value = 0;
+  } finally {
+    loading.value = false;
   }
-  
-  // 按分类筛选
-  if (categoryFilter.value) {
-    result = result.filter(item => item.category === categoryFilter.value)
-  }
-  
-  // 按状态筛选
-  if (statusFilter.value) {
-    result = result.filter(item => item.status === Number(statusFilter.value))
-  }
-  
-  return result
-})
+};
+
+// 分页处理
+const handlePageChange = (page, pageSize) => {
+  queryParams.pageNum = page;
+  queryParams.pageSize = pageSize;
+  fetchProductList();
+};
+
+// 页面大小改变
+const handleSizeChange = (current, size) => {
+  queryParams.pageNum = 1;
+  queryParams.pageSize = size;
+  fetchProductList();
+};
 
 // 搜索处理
-const handleSearch = () => {
-  // 触发表格重新加载
-  loadProducts()
-}
+const handleQuery = () => {
+  queryParams.pageNum = 1;
+  fetchProductList();
+};
 
-// 重置筛选条件
-const handleReset = () => {
-  searchValue.value = ''
-  categoryFilter.value = ''
-  statusFilter.value = ''
-  // 触发表格重新加载
-  loadProducts()
-}
+// 重置查询
+const resetQuery = () => {
+  queryParams.productName = "";
+  queryParams.productTypeId = "";
+  queryParams.productStatus = "";
+  queryParams.pageNum = 1;
+  fetchProductList();
+};
 
-// 加载商品列表
-const loadProducts = async () => {
-  try {
-    loading.value = true
-    // TODO: 调用API获取商品列表
-    // const params = {
-    //   name: searchValue.value,
-    //   category: categoryFilter.value,
-    //   status: statusFilter.value,
-    //   page: pagination.current,
-    //   pageSize: pagination.pageSize
-    // }
-    // const response = await fetch('/api/products', { params })
-    // const data = await response.json()
-    // products.value = data.items
-    // pagination.total = data.total
-  } catch (error) {
-    message.error('加载商品列表失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-// 表格变化处理
-const handleTableChange = (pag, filters, sorter) => {
-  pagination.current = pag.current
-  pagination.pageSize = pag.pageSize
-  loadProducts()
-}
+console.log(selectedRowKeys.value.length, 2111);
+// 表格行选择变化
+const onSelectChange = (keys) => {
+  selectedRowKeys.value = keys;
+};
 
 // 添加/编辑模态框相关
-const modalVisible = ref(false)
-const isEdit = ref(false)
-const formRef = ref(null)
+const modalVisible = ref(false);
+const isEdit = ref(false);
+const formRef = ref(null);
 const formData = reactive({
   id: null,
-  name: '',
-  category: undefined,
-  price: 0,
-  stock: 0,
-  status: 1,
-  image: '',
-  description: '',
-})
+  productName: "",
+  productType: "",
+  productTypeId: "",
+  productStatus: "1",
+  productImage: "",
+  remark: "",
+});
 
-const fileList = ref([])
+const fileList = ref([]);
 const rules = {
-  name: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
-  category: [{ required: true, message: '请选择商品分类', trigger: 'change' }],
-  price: [{ required: true, message: '请输入商品价格', trigger: 'blur' }],
-  stock: [{ required: true, message: '请输入库存数量', trigger: 'blur' }],
-  status: [{ required: true, message: '请选择商品状态', trigger: 'change' }],
-}
+  productName: [{ required: true, message: "请输入商品名称", trigger: "blur" }],
+  productTypeId: [
+    { required: true, message: "请选择商品分类", trigger: "change" },
+  ],
+  productStatus: [
+    { required: true, message: "请选择商品状态", trigger: "change" },
+  ],
+};
+
+// 商品分类变更
+const handleTypeChange = (value) => {
+  const category = categoryOptions.value.find(
+    (item) => item.dictValue === value
+  );
+  if (category) {
+    formData.productType = category.dictLabel;
+  }
+};
 
 // 显示添加模态框
 const showAddModal = () => {
-  isEdit.value = false
-  Object.keys(formData).forEach(key => {
-    formData[key] = key === 'status' ? 1 : (key === 'price' || key === 'stock' ? 0 : '')
-  })
-  fileList.value = []
-  modalVisible.value = true
-}
+  isEdit.value = false;
+  formData.id = null;
+  formData.productName = "";
+  formData.productType = "";
+  formData.productTypeId = "";
+  formData.productStatus = "1";
+  formData.productImage = "";
+  formData.remark = "";
+  fileList.value = [];
+  modalVisible.value = true;
+};
 
 // 显示编辑模态框
-const showEditModal = (record) => {
-  isEdit.value = true
-  Object.keys(formData).forEach(key => {
-    formData[key] = record[key]
-  })
-  fileList.value = record.image ? [{
-    uid: '-1',
-    name: 'image.png',
-    status: 'done',
-    url: record.image,
-  }] : []
-  modalVisible.value = true
-}
+const handleEdit = (record) => {
+  isEdit.value = true;
+  const recordCopy = JSON.parse(JSON.stringify(record));
+  Object.assign(formData, recordCopy);
+
+  fileList.value = record.productImage
+    ? [
+        {
+          uid: "-1",
+          name: "image.png",
+          status: "done",
+          url: record.productImage,
+        },
+      ]
+    : [];
+
+  modalVisible.value = true;
+};
 
 // 处理模态框确认
 const handleModalOk = () => {
-  formRef.value.validateFields().then(values => {
-    // 设置图片URL
-    if (fileList.value.length > 0) {
-      values.image = fileList.value[0].url || fileList.value[0].response?.url
-    }
-    
-    if (isEdit.value) {
-      // 更新商品
-      const index = products.value.findIndex(item => item.id === formData.id)
-      if (index !== -1) {
-        products.value[index] = {
-          ...products.value[index],
-          ...values,
-          updatedAt: new Date(),
+  formRef.value
+    .validateFields()
+    .then(async () => {
+      try {
+        const submitData = {
+          productName: formData.productName,
+          productImage: formData.productImage.replace(
+            import.meta.env.VITE_BASE_URL,
+            ""
+          ),
+          productType: formData.productType,
+          productTypeId: formData.productTypeId,
+          productStatus: formData.productStatus,
+        };
+
+        // 如果是编辑，需要添加id字段
+        if (isEdit.value && formData.id) {
+          submitData.id = formData.id;
         }
-        message.success('商品更新成功')
+
+        if (isEdit.value) {
+          // 更新商品
+          const res = await request.put("/biz/product", submitData);
+          if (res.code === 200) {
+            message.success("商品更新成功");
+            modalVisible.value = false;
+            fetchProductList(); // 刷新列表
+          } else {
+            message.error(res.msg || "商品更新失败");
+          }
+        } else {
+          // 添加商品
+          const res = await request.post("/biz/product", submitData);
+          if (res.code === 200) {
+            message.success("商品添加成功");
+            modalVisible.value = false;
+            fetchProductList(); // 刷新列表
+          } else {
+            message.error(res.msg || "商品添加失败");
+          }
+        }
+      } catch (error) {
+        console.error("操作失败", error);
+        message.error("操作失败");
       }
-    } else {
-      // 添加商品
-      const newProduct = {
-        ...values,
-        id: products.value.length + 1,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-      products.value.unshift(newProduct)
-      message.success('商品添加成功')
-    }
-    
-    modalVisible.value = false
-  }).catch(error => {
-    console.error('验证失败:', error)
-  })
-}
+    })
+    .catch((error) => {
+      console.error("验证失败:", error);
+    });
+};
 
 // 图片上传相关
-const previewVisible = ref(false)
-const previewImage = ref('')
-const previewTitle = ref('')
+const previewVisible = ref(false);
+const previewImage = ref("");
+const previewTitle = ref("");
 
 const handlePreview = async (file) => {
-  previewImage.value = file.url || file.preview
-  previewVisible.value = true
-  previewTitle.value = file.name || file.url.substring(file.url.lastIndexOf('/') + 1)
-}
+  previewImage.value = file.url || file.preview;
+  previewVisible.value = true;
+  previewTitle.value =
+    file.name || file.url.substring(file.url.lastIndexOf("/") + 1);
+};
 
 const beforeUpload = (file) => {
-  const isImage = file.type.indexOf('image/') === 0
+  const isImage = file.type.indexOf("image/") === 0;
   if (!isImage) {
-    message.error('只能上传图片文件!')
+    message.error("只能上传图片文件!");
+    return false;
   }
-  
-  const isLt2M = file.size / 1024 / 1024 < 2
+
+  const isLt2M = file.size / 1024 / 1024 < 2;
   if (!isLt2M) {
-    message.error('图片大小不能超过 2MB!')
+    message.error("图片大小不能超过 2MB!");
+    return false;
   }
-  
-  if (isImage && isLt2M) {
-    // 模拟上传
-    const reader = new FileReader()
-    reader.readAsDataURL(file)
-    reader.onload = () => {
-      file.url = reader.result
-      fileList.value = [file]
-    }
-  }
-  
-  return false // 阻止自动上传
-}
+
+  // 创建表单数据
+  const uploadFormData = new FormData();
+  uploadFormData.append("file", file);
+
+  // 上传文件
+  loading.value = true;
+  request
+    .post("/common/upload", uploadFormData)
+    .then((res) => {
+      if (res.code === 200) {
+        const url = import.meta.env.VITE_BASE_URL + res.fileName;
+        file.url = url;
+        file.thumbUrl = url;
+        file.status = "done";
+        fileList.value = [file];
+        formData.productImage = url;
+      } else {
+        message.error(res.msg || "上传失败");
+      }
+      loading.value = false;
+    })
+    .catch((err) => {
+      console.error("上传失败:", err);
+      loading.value = false;
+    });
+
+  return false; // 阻止自动上传
+};
 
 // 查看商品详情
-const viewVisible = ref(false)
-const currentProduct = ref({})
+const viewVisible = ref(false);
+const currentProduct = ref({});
 
-const showViewModal = (record) => {
-  currentProduct.value = record
-  viewVisible.value = true
-}
+const handleView = async (record) => {
+  try {
+    loading.value = true;
+    // 调用获取商品详细信息接口
+    const res = await request.get(`/biz/product/${record.id}`);
+    if (res.code === 200 && res.data) {
+      currentProduct.value = res.data;
+      currentProduct.value.productImage =
+        import.meta.env.VITE_BASE_URL + currentProduct.value.productImage;
+      viewVisible.value = true;
+    } else {
+      message.error(res.msg || "获取商品详情失败");
+    }
+  } catch (error) {
+    console.error("获取商品详情失败:", error);
+    message.error("获取商品详情失败");
+  } finally {
+    loading.value = false;
+  }
+};
 
 // 删除商品
 const handleDelete = async (id) => {
-  const index = products.value.findIndex(item => item.id === id)
-  if (index !== -1) {
-    products.value.splice(index, 1)
-    message.success('商品删除成功')
-  }
-}
-
-// 批量操作相关
-const handleBatchDelete = () => {
-  // 实现批量删除功能
-  console.log('批量删除:', selectedRowKeys.value)
-}
-
-const handleBatchStatus = (status) => {
-  // 实现批量更新状态功能
-  console.log('批量更新状态:', status, selectedRowKeys.value)
-}
-
-const onSelectChange = (keys) => {
-  selectedRowKeys.value = keys
-}
-
-const handleEdit = (record) => {
-  // 实现编辑功能
-  console.log('编辑商品:', record)
-}
-
-// 防伪码生成相关
-const codeModalVisible = ref(false)
-const codeGenerating = ref(false)
-const codeForm = reactive({
-  quantity: 100,
-  batchNo: '',
-  productionDate: null,
-  expiryDate: null
-})
-
-// 批次管理相关
-const batchModalVisible = ref(false)
-const batchLoading = ref(false)
-const batchList = ref([])
-const batchColumns = [
-  { title: '批次编号', dataIndex: 'batchNo', width: 120 },
-  { title: '生成数量', dataIndex: 'quantity', width: 100 },
-  { title: '已使用数量', dataIndex: 'usedQuantity', width: 100 },
-  { title: '生产日期', dataIndex: 'productionDate', width: 120 },
-  { title: '有效期', dataIndex: 'expiryDate', width: 120 },
-  { title: '状态', dataIndex: 'status', width: 100 },
-  { title: '操作', dataIndex: 'action', width: 150 }
-]
-
-// 生成防伪码
-const handleCodeGenerate = async () => {
   try {
-    codeGenerating.value = true
-    // TODO: 调用生成防伪码API
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    message.success('防伪码生成成功')
-    codeModalVisible.value = false
+    const res = await request.delete(`/biz/product/${id}`);
+    if (res.code === 200) {
+      message.success("商品删除成功");
+      fetchProductList(); // 刷新列表
+    } else {
+      message.error(res.msg || "删除失败");
+    }
   } catch (error) {
-    message.error('防伪码生成失败')
-  } finally {
-    codeGenerating.value = false
+    console.error("删除失败", error);
+    message.error("删除失败");
   }
-}
+};
 
-// 处理批次管理
-const handleBatchManage = (record) => {
-  currentProduct.value = record
-  batchModalVisible.value = true
-  loadBatchList()
-}
-
-// 加载批次列表
-const loadBatchList = async () => {
+// 批量删除
+const handleBatchDelete = async () => {
   try {
-    batchLoading.value = true
-    // TODO: 调用获取批次列表API
-    batchList.value = [
-      {
-        id: 1,
-        batchNo: 'B202304090001',
-        quantity: 1000,
-        usedQuantity: 100,
-        productionDate: '2023-04-09',
-        expiryDate: '2024-04-09',
-        status: 1
-      }
-    ]
+    if (selectedRowKeys.value.length === 0) {
+      message.warning("请选择要删除的商品");
+      return;
+    }
+    
+    // 使用正确的接口格式: /biz/product/5,6
+    const ids = selectedRowKeys.value.join(",");
+    const res = await request.delete(`/biz/product/${ids}`);
+    
+    if (res.code === 200) {
+      message.success("批量删除成功");
+      selectedRowKeys.value = [];
+      fetchProductList(); // 刷新列表
+    } else {
+      message.error(res.msg || "批量删除失败");
+    }
   } catch (error) {
-    message.error('加载批次列表失败')
-  } finally {
-    batchLoading.value = false
+    console.error("批量删除失败", error);
+    message.error("批量删除失败");
   }
-}
-
-// 获取批次状态颜色
-const getBatchStatusColor = (status) => {
-  const colors = {
-    0: 'orange',
-    1: 'green',
-    2: 'red'
-  }
-  return colors[status] || 'default'
-}
-
-// 获取批次状态文本
-const getBatchStatusText = (status) => {
-  const texts = {
-    0: '未启用',
-    1: '已启用',
-    2: '已停用'
-  }
-  return texts[status] || '未知'
-}
-
-// 查看批次详情
-const handleBatchDetail = (record) => {
-  // TODO: 实现批次详情查看
-}
-
-// 导出防伪码
-const handleExportCodes = (record) => {
-  // TODO: 实现防伪码导出
-}
+};
 
 // 处理商品状态变更
 const handleStatusChange = async (record) => {
   try {
-    if (record.status === 1) {
-      await offShelfProduct(record.id)
-      message.success('商品下架成功')
+    const newStatus = record.productStatus === "1" ? "0" : "1";
+    const res = await request.put("/biz/product", {
+      id: record.id,
+      productName: record.productName,
+      productImage: record.productImage.replace(
+        import.meta.env.VITE_BASE_URL,
+        ""
+      ),
+      productType: record.productType,
+      productTypeId: record.productTypeId,
+      productStatus: newStatus,
+    });
+
+    if (res.code === 200) {
+      message.success(`商品${newStatus === "1" ? "上架" : "下架"}成功`);
+      fetchProductList(); // 刷新列表
     } else {
-      await onShelfProduct(record.id)
-      message.success('商品上架成功')
+      message.error(res.msg || "操作失败");
     }
-    loadData()
   } catch (error) {
-    message.error('操作失败')
+    console.error("状态变更失败", error);
+    message.error("操作失败");
   }
-}
+};
+
+// 添加日期格式化函数
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return "--";
+  return dayjs(dateStr).format("YYYY-MM-DD HH:mm:ss");
+};
 </script>
 
 <style scoped lang="less">
 .products-list {
+  .product-image {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 4px;
+    cursor: pointer;
+  }
   .ant-space {
     white-space: nowrap;
   }
   h1 {
     margin-bottom: 24px;
   }
-  
+
   .search-bar {
     margin-bottom: 24px;
     display: flex;
@@ -806,13 +739,6 @@ const handleStatusChange = async (record) => {
     display: flex;
     align-items: center;
     gap: 12px;
-
-    .product-image {
-      width: 50px;
-      height: 50px;
-      object-fit: cover;
-      border-radius: 4px;
-    }
 
     .product-name {
       color: #333;
@@ -832,18 +758,5 @@ const handleStatusChange = async (record) => {
     align-items: center;
     z-index: 1000;
   }
-
-  .product-image {
-    width: 80px;
-    height: 80px;
-    object-fit: cover;
-    border-radius: 4px;
-  }
-  
-  .product-detail-image {
-    max-width: 100%;
-    max-height: 300px;
-    object-fit: contain;
-  }
 }
-</style> 
+</style>

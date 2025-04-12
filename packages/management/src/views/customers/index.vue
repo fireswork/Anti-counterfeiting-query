@@ -4,24 +4,28 @@
     <div class="operation-bar">
       <a-space>
         <a-input-search
-          v-model:value="searchValue"
-          placeholder="搜索用户名称/头像"
+          v-model:value="queryParams.userName"
+          placeholder="搜索用户名称"
           style="width: 200px"
-          @search="onSearch"
+          @search="handleQuery"
+          allowClear
+        />
+        <a-input
+          v-model:value="queryParams.phonenumber"
+          placeholder="手机号码"
+          style="width: 150px"
+          @pressEnter="handleQuery"
+          allowClear
         />
         <a-select
-          v-model:value="roleFilter"
-          placeholder="用户类型"
-          style="width: 150px"
-          @change="onFilterChange"
+          v-model:value="queryParams.status"
+          placeholder="状态"
+          style="width: 100px"
+          @change="handleQuery"
+          allowClear
         >
-          <a-select-option 
-            v-for="option in availableRoleFilters" 
-            :key="option.value" 
-            :value="option.value"
-          >
-            {{ option.label }}
-          </a-select-option>
+          <a-select-option value="0">正常</a-select-option>
+          <a-select-option value="1">停用</a-select-option>
         </a-select>
       </a-space>
       <a-button type="primary" @click="handleAdd">
@@ -33,42 +37,38 @@
     <!-- 用户表格 -->
     <a-table
       :columns="columns"
-      :data-source="filteredUsers"
+      :data-source="userList"
       :loading="loading"
-      :pagination="pagination"
+      :pagination="{
+        total: total,
+        showSizeChanger: true,
+        pageSize: queryParams.pageSize,
+        current: queryParams.pageNum,
+        onChange: handlePageChange,
+        onShowSizeChange: handleSizeChange,
+        showTotal: total => `共 ${total} 条`
+      }"
       @change="handleTableChange"
       :scroll="{ x: 1200 }"
-      rowKey="id"
+      rowKey="userId"
       bordered
     >
       <template #bodyCell="{ column, record }">
-        <!-- 用户信息列 -->
-        <template v-if="column.dataIndex === 'userInfo'">
-          <div class="user-info">
-            <a-avatar :src="record.avatar" />
-            <span class="user-name">{{ record.name }}</span>
-          </div>
+        <!-- 用户头像 -->
+        <template v-if="column.dataIndex === 'avatar'">
+          <a-avatar :src="record.avatar" :size="40" v-if="record.avatar"/>
         </template>
 
-        <!-- 用户类型 -->
-        <template v-if="column.dataIndex === 'role'">
-          <a-tag :color="getRoleColor(record.role)">
-            {{ getRoleLabel(record.role) }}
+        <!-- 用户状态 -->
+        <template v-if="column.dataIndex === 'status'">
+          <a-tag :color="record.status === '0' ? 'green' : 'red'">
+            {{ record.status === '0' ? '正常' : '停用' }}
           </a-tag>
         </template>
 
         <!-- 操作列 -->
         <template v-if="column.dataIndex === 'action'">
-          <a-space>
-            <template v-if="record.role === 'user'">
-              <a-button 
-                type="link" 
-                @click="handleUpgradeToAdmin(record)"
-                v-if="getCurrentUserRole() === 'super_admin'"
-              >
-                升级为管理员
-              </a-button>
-            </template>
+          <a-space v-if="!record.admin">
             <a-button type="link" @click="handleEdit(record)">编辑</a-button>
             <a-divider type="vertical" />
             <a-popconfirm
@@ -79,6 +79,7 @@
             >
               <a-button type="link" danger>删除</a-button>
             </a-popconfirm>
+            <a-button type="link" @click="handleResetPassword(record)">重置密码</a-button>
           </a-space>
         </template>
       </template>
@@ -87,39 +88,78 @@
     <!-- 编辑用户弹窗 -->
     <a-modal
       v-model:open="editModalVisible"
-      :title="isEdit ? '编辑用户信息' : '新增客户'"
-      @ok="handleEditSubmit"
+      :title="formMode === 'add' ? '新增客户' : '编辑用户信息'"
+      @ok="handleSubmit"
       :confirmLoading="submitLoading"
+      width="650px"
     >
       <a-form
-        ref="editFormRef"
-        :model="editForm"
+        ref="formRef"
+        :model="formData"
         :rules="rules"
         :label-col="{ span: 6 }"
         :wrapper-col="{ span: 16 }"
       >
-        <a-form-item label="用户名称" name="name">
-          <a-input v-model:value="editForm.name" placeholder="请输入用户名称" />
+        <a-form-item label="用户名称" name="userName">
+          <a-input v-model:value="formData.userName" placeholder="请输入用户名称" :disabled="formMode === 'edit'" />
         </a-form-item>
-        <a-form-item label="头像" name="avatar">
-          <a-upload
-            v-model:file-list="fileList"
-            list-type="picture-card"
-            :max-count="1"
-            @preview="handlePreview"
-            @change="handleAvatarChange"
-          >
-            <div v-if="fileList.length < 1">
-              <plus-outlined />
-              <div style="margin-top: 8px">上传</div>
-            </div>
-          </a-upload>
+        <a-form-item label="用户昵称" name="nickName">
+          <a-input v-model:value="formData.nickName" placeholder="请输入用户昵称" />
         </a-form-item>
-        <a-form-item label="用户类型" name="role" v-if="!isEdit">
-          <a-select v-model:value="editForm.role" placeholder="请选择用户类型">
-            <a-select-option value="user">普通用户</a-select-option>
-            <a-select-option value="admin" v-if="getCurrentUserRole() === 'super_admin'">管理员</a-select-option>
-          </a-select>
+        <a-form-item label="手机号码" name="phonenumber">
+          <a-input v-model:value="formData.phonenumber" placeholder="请输入手机号码" />
+        </a-form-item>
+        <a-form-item label="邮箱" name="email">
+          <a-input v-model:value="formData.email" placeholder="请输入邮箱" />
+        </a-form-item>
+        <a-form-item label="密码" name="password" v-if="formMode === 'add'">
+          <a-input-password v-model:value="formData.password" placeholder="请输入密码" />
+        </a-form-item>
+        <a-form-item label="用户角色" name="roleIds">
+          <a-select
+            v-model:value="formData.roleIds"
+            placeholder="请选择用户角色"
+            mode="multiple"
+            :options="roleOptions"
+            :disabled="!isSuperAdmin"
+            :fieldNames="{ label: 'roleName', value: 'roleId' }"
+          />
+        </a-form-item>
+        <a-form-item label="状态" name="status">
+          <a-radio-group v-model:value="formData.status">
+            <a-radio value="0">正常</a-radio>
+            <a-radio value="1">停用</a-radio>
+          </a-radio-group>
+        </a-form-item>
+        <a-form-item label="备注" name="remark">
+          <a-textarea v-model:value="formData.remark" placeholder="请输入备注" :rows="3" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <!-- 重置密码弹窗 -->
+    <a-modal
+      v-model:open="resetPasswordVisible"
+      title="重置密码"
+      @ok="handleResetPasswordSubmit"
+      :confirmLoading="resetPasswordLoading"
+      width="500px"
+    >
+      <a-form
+        ref="resetPasswordFormRef"
+        :model="resetPasswordForm"
+        :rules="resetPasswordRules"
+        :label-col="{ span: 6 }"
+        :wrapper-col="{ span: 16 }"
+      >
+        <a-form-item label="用户名称">
+          <span>{{ resetPasswordForm.userName }}</span>
+        </a-form-item>
+        <a-form-item label="新密码" name="password">
+          <a-input-password v-model:value="resetPasswordForm.password" placeholder="请输入新密码" />
+        </a-form-item>
+        <a-form-item label="确认密码" name="confirmPassword">
+          <a-input-password v-model:value="resetPasswordForm.confirmPassword" placeholder="请确认新密码" />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -127,307 +167,336 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
-import { useRouter } from 'vue-router'
-
-const router = useRouter()
+import request from '@/api/request'
 
 // 表格列定义
 const columns = [
   {
-    title: '用户头像/名称',
-    dataIndex: 'userInfo',
-    width: 200,
+    title: '用户头像',
+    dataIndex: 'avatar',
+    width: 100,
   },
   {
-    title: '用户类型',
-    dataIndex: 'role',
-    width: 120,
+    title: '用户名称',
+    dataIndex: 'userName',
+    width: 150,
+  },
+  {
+    title: '用户昵称',
+    dataIndex: 'nickName',
+    width: 150,
+  },
+  {
+    title: '手机号码',
+    dataIndex: 'phonenumber',
+    width: 150,
+  },
+  {
+    title: '状态',
+    dataIndex: 'status',
+    width: 100,
   },
   {
     title: '创建时间',
-    dataIndex: 'createdAt',
-    width: 180,
-  },
-  {
-    title: '最后修改时间',
-    dataIndex: 'updatedAt',
+    dataIndex: 'createTime',
     width: 180,
   },
   {
     title: '操作',
     dataIndex: 'action',
-    width: 200,
+    width: 240,
     fixed: 'right'
   }
 ]
 
 // 状态变量
 const loading = ref(false)
-const searchValue = ref('')
-const roleFilter = ref('')
+const userList = ref([])
+const total = ref(0)
 const editModalVisible = ref(false)
 const submitLoading = ref(false)
-const fileList = ref([])
-const users = ref([])
-const isEdit = ref(false)
+const formMode = ref('add') // 'add' 或 'edit'
+const roleOptions = ref([])
+const isSuperAdmin = ref(JSON.parse(localStorage.getItem('userData')).roles.find(role => role.roleKey === 'admin'))
 
-// 编辑表单
-const editFormRef = ref(null)
-const editForm = reactive({
-  id: null,
-  name: '',
-  avatar: '',
-  role: 'user'
+// 重置密码相关变量
+const resetPasswordVisible = ref(false)
+const resetPasswordLoading = ref(false)
+const resetPasswordFormRef = ref(null)
+const resetPasswordForm = reactive({
+  userId: undefined,
+  userName: '',
+  password: '',
+  confirmPassword: ''
+})
+
+// 重置密码校验规则
+const resetPasswordRules = {
+  password: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, message: '密码长度不能小于6个字符', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { required: true, message: '请确认新密码', trigger: 'blur' },
+    { validator: validateConfirmPassword, trigger: 'blur' }
+  ]
+}
+
+// 密码确认验证函数
+function validateConfirmPassword(rule, value) {
+  if (value !== resetPasswordForm.password) {
+    return Promise.reject('两次输入的密码不一致')
+  }
+  return Promise.resolve()
+}
+
+// 查询参数
+const queryParams = reactive({
+  pageNum: 1,
+  pageSize: 10,
+  userName: '',
+  phonenumber: '',
+})
+
+// 表单对象
+const formRef = ref(null)
+const formData = reactive({
+  userId: undefined,
+  userName: '',
+  nickName: '',
+  password: '',
+  phonenumber: '',
+  email: '',
+  status: '0',
+  roleIds: [],
+  remark: ''
 })
 
 // 表单校验规则
 const rules = {
-  name: [
+  userName: [
     { required: true, message: '请输入用户名称', trigger: 'blur' },
     { min: 2, max: 20, message: '用户名称长度应在 2-20 个字符之间', trigger: 'blur' }
   ],
-  role: [
-    { required: true, message: '请选择用户类型', trigger: 'change' }
+  nickName: [
+    { required: true, message: '请输入用户昵称', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码长度不能小于6个字符', trigger: 'blur' }
+  ],
+  phonenumber: [
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }
+  ],
+  email: [
+    { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+  ],
+  roleIds: [
+    { required: true, type: 'array', message: '请选择用户角色', trigger: 'change' }
   ]
 }
 
-// 分页配置
-const pagination = reactive({
-  current: 1,
-  pageSize: 10,
-  total: 0,
-  showSizeChanger: true
-})
-
-// 获取角色标签
-const getRoleLabel = (role) => {
-  const roleMap = {
-    user: '普通用户',
-    admin: '管理员',
-    super_admin: '超级管理员'
+// 获取用户列表
+const getUserList = async () => {
+  loading.value = true
+  try {
+    const res = await request.get('/system/user/list', { params: queryParams })
+    if (res && res.rows) {
+      userList.value = res.rows?.map(item => ({
+        ...item,
+        avatar: item.avatar ? import.meta.env.VITE_BASE_URL + item.avatar : ''
+      })) || []
+      total.value = res.total || 0
+    } else {
+      userList.value = []
+      total.value = 0
+      message.error('获取用户列表失败')
+    }
+  } catch (error) {
+    console.error('获取用户列表失败', error)
+    message.error('获取用户列表失败')
+    userList.value = []
+    total.value = 0
+  } finally {
+    loading.value = false
   }
-  return roleMap[role] || '未知角色'
 }
 
-// 获取角色标签颜色
-const getRoleColor = (role) => {
-  const colorMap = {
-    user: 'blue',
-    admin: 'green',
-    super_admin: 'purple'
+// 获取角色选项
+const getRoleOptions = async () => {
+  try {
+    const res = await request.get('/system/role/optionselect')
+    roleOptions.value = res.data || []
+  } catch (error) {
+    console.error('获取角色选项失败', error)
+    message.error('获取角色选项失败')
+    roleOptions.value = []
   }
-  return colorMap[role] || 'default'
 }
 
-// 模拟数据
-const mockUsers = () => {
-  const data = []
-  for (let i = 1; i <= 50; i++) {
-    data.push({
-      id: i,
-      name: `用户${i}`,
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${i}`,
-      role: i === 1 ? 'super_admin' : (i % 5 === 0 ? 'admin' : 'user'),
-      createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toLocaleString(),
-      updatedAt: new Date(Date.now() - Math.random() * 15 * 24 * 60 * 60 * 1000).toLocaleString()
-    })
-  }
-  return data
+// 查询
+const handleQuery = () => {
+  queryParams.pageNum = 1
+  getUserList()
 }
 
-// 过滤后的用户列表
-const filteredUsers = computed(() => {
-  let result = [...users.value]
-  
-  // 根据当前用户角色过滤可见的用户
-  const currentUserRole = 'super_admin' // 这里应该从用户状态管理中获取当前用户角色
-  if (currentUserRole === 'super_admin') {
-    // 超管只能看到管理员和普通用户
-    result = result.filter(user => user.role !== 'super_admin')
-  } else if (currentUserRole === 'admin') {
-    // 管理员只能看到普通用户
-    result = result.filter(user => user.role === 'user')
-  } else {
-    // 普通用户不应该看到这个页面，返回空数组
-    result = []
-  }
-  
-  // 搜索过滤
-  if (searchValue.value) {
-    const search = searchValue.value.toLowerCase()
-    result = result.filter(item => 
-      item.name.toLowerCase().includes(search)
-    )
-  }
-  
-  if (roleFilter.value) {
-    result = result.filter(item => item.role === roleFilter.value)
-  }
-  
-  return result
-})
-
-// 获取当前用户可选择的角色过滤选项
-const availableRoleFilters = computed(() => {
-  const currentUserRole = 'super_admin' // 这里应该从用户状态管理中获取当前用户角色
-  if (currentUserRole === 'super_admin') {
-    return [
-      { value: '', label: '全部类型' },
-      { value: 'admin', label: '管理员' },
-      { value: 'user', label: '普通用户' }
-    ]
-  } else if (currentUserRole === 'admin') {
-    return [
-      { value: '', label: '全部类型' },
-      { value: 'user', label: '普通用户' }
-    ]
-  }
-  return []
-})
-
-// 事件处理函数
-const onSearch = (value) => {
-  searchValue.value = value
-  pagination.current = 1
-}
-
-const onFilterChange = () => {
-  pagination.current = 1
-}
-
-const handleTableChange = (pag) => {
-  pagination.current = pag.current
-  pagination.pageSize = pag.pageSize
-}
-
+// 新增用户
 const handleAdd = () => {
-  isEdit.value = false
-  editForm.id = null
-  editForm.name = ''
-  editForm.avatar = ''
-  editForm.role = 'user'
-  fileList.value = []
+  formMode.value = 'add'
+  formData.userId = undefined
+  formData.userName = ''
+  formData.nickName = ''
+  formData.password = ''
+  formData.phonenumber = ''
+  formData.email = ''
+  formData.status = '0'
+  formData.roleIds = [2]
+  formData.remark = ''
   editModalVisible.value = true
 }
 
-const handleEdit = (record) => {
-  isEdit.value = true
-  editForm.id = record.id
-  editForm.name = record.name
-  editForm.avatar = record.avatar
-  editForm.role = record.role
-  fileList.value = [
-    {
-      uid: '-1',
-      name: 'avatar.png',
-      status: 'done',
-      url: record.avatar
+// 编辑用户
+const handleEdit = async (record) => {
+  formMode.value = 'edit'
+  formData.userId = record.userId
+  formData.userName = record.userName
+  formData.nickName = record.nickName
+  formData.password = ''
+  formData.phonenumber = record.phonenumber
+  formData.email = record.email
+  formData.status = record.status
+  formData.remark = record.remark
+  
+  // 获取用户详情，主要是获取角色信息
+  try {
+    const res = await request.get(`/system/user/${record.userId}`)
+    if (res && res.data) {
+      formData.roleIds = res.data.roles.map(role => role.roleId)
     }
-  ]
+  } catch (error) {
+    console.error('获取用户详情失败', error)
+    message.error('获取用户详情失败')
+  }
+  
   editModalVisible.value = true
 }
 
-const handleEditSubmit = () => {
-  editFormRef.value?.validate().then(() => {
+// 表单提交
+const handleSubmit = async () => {
+  try {
+    await formRef.value.validate()
     submitLoading.value = true
-    // 模拟API调用
-    setTimeout(() => {
-      if (isEdit.value) {
-        // 编辑用户
-        const index = users.value.findIndex(item => item.id === editForm.id)
-        if (index !== -1) {
-          users.value[index] = {
-            ...users.value[index],
-            name: editForm.name,
-            avatar: editForm.avatar,
-            updatedAt: new Date().toLocaleString()
-          }
-          message.success('修改成功')
-        }
-      } else {
-        // 新增用户
-        const newUser = {
-          id: users.value.length + 1,
-          name: editForm.name,
-          avatar: editForm.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`,
-          role: editForm.role,
-          createdAt: new Date().toLocaleString(),
-          updatedAt: new Date().toLocaleString()
-        }
-        users.value.unshift(newUser)
-        message.success('新增成功')
-      }
-      editModalVisible.value = false
-      submitLoading.value = false
-    }, 500)
-  })
-}
-
-const handleUpgradeToAdmin = (record) => {
-  // 模拟API调用
-  const index = users.value.findIndex(item => item.id === record.id)
-  if (index !== -1) {
-    users.value[index] = {
-      ...users.value[index],
-      role: 'admin',
-      updatedAt: new Date().toLocaleString()
+    
+    const submitData = { ...formData }
+    if (formMode.value === 'edit') {
+      delete submitData.password
     }
-    message.success(`已将 ${record.name} 升级为管理员`)
+    
+    if (formMode.value === 'add') {
+      // 新增用户
+      const res = await request.post('/system/user', submitData)
+      if (res.code === 200) {
+        message.success('新增成功')
+        editModalVisible.value = false
+        getUserList()
+      } else {
+        message.error(res.msg || '新增失败')
+      }
+    } else {
+      // 编辑用户
+      const res = await request.put('/system/user', submitData)
+      if (res.code === 200) {
+        message.success('编辑成功')
+        editModalVisible.value = false
+        getUserList()
+      } else {
+        message.error(res.msg || '编辑失败')
+      }
+    }
+  } catch (error) {
+    console.error('表单验证失败:', error)
+  } finally {
+    submitLoading.value = false
   }
 }
 
-const handleDelete = (record) => {
-  const index = users.value.findIndex(item => item.id === record.id)
-  if (index !== -1) {
-    users.value.splice(index, 1)
-    message.success('删除成功')
+// 删除用户
+const handleDelete = async (record) => {
+  try {
+    const res = await request.delete(`/system/user/${record.userId}`)
+    if (res.code === 200) {
+      message.success('删除成功')
+      getUserList()
+    } else {
+      message.error(res.msg || '删除失败')
+    }
+  } catch (error) {
+    console.error('删除用户失败:', error)
+    message.error('删除用户失败')
   }
 }
 
-const handleAvatarChange = (info) => {
-  if (info.file.status === 'done') {
-    editForm.avatar = info.file.response.url || fileList.value[0].url
+// 分页改变
+const handlePageChange = (page, pageSize) => {
+  queryParams.pageNum = page
+  queryParams.pageSize = pageSize
+  getUserList()
+}
+
+// 每页条数改变
+const handleSizeChange = (current, size) => {
+  queryParams.pageNum = 1
+  queryParams.pageSize = size
+  getUserList()
+}
+
+// 表格改变
+const handleTableChange = (pagination) => {
+  queryParams.pageNum = pagination.current
+  queryParams.pageSize = pagination.pageSize
+  getUserList()
+}
+
+// 重置密码
+const handleResetPassword = (record) => {
+  resetPasswordForm.userId = record.userId
+  resetPasswordForm.userName = record.userName
+  resetPasswordForm.password = ''
+  resetPasswordForm.confirmPassword = ''
+  resetPasswordVisible.value = true
+}
+
+// 提交重置密码
+const handleResetPasswordSubmit = async () => {
+  try {
+    await resetPasswordFormRef.value.validate()
+    resetPasswordLoading.value = true
+    
+    const res = await request.put('/system/user/resetPwd', {
+      userId: resetPasswordForm.userId,
+      password: resetPasswordForm.password
+    })
+    
+    if (res.code === 200) {
+      message.success('密码重置成功')
+      resetPasswordVisible.value = false
+    } else {
+      message.error(res.msg || '密码重置失败')
+    }
+  } catch (error) {
+    console.error('表单验证失败:', error)
+  } finally {
+    resetPasswordLoading.value = false
   }
 }
 
-const handlePreview = (file) => {
-  const previewImage = file.url || file.preview
-  if (previewImage) {
-    window.open(previewImage)
-  }
-}
-
-// 获取当前用户角色
-const getCurrentUserRole = () => {
-  // 这里应该从用户状态管理中获取当前用户角色
-  return 'super_admin'
-}
-
-// 检查用户是否有权限访问该页面
-const checkPageAccess = () => {
-  const currentRole = getCurrentUserRole()
-  if (currentRole === 'user') {
-    // 如果是普通用户，跳转到首页或其他允许访问的页面
-    router.push('/')
-    message.error('您没有权限访问该页面')
-  }
-}
-
-// 在组件挂载时检查权限
+// 生命周期钩子
 onMounted(() => {
-  checkPageAccess()
-  if (getCurrentUserRole() !== 'user') {
-    loading.value = true
-    // 模拟API调用
-    setTimeout(() => {
-      users.value = mockUsers()
-      pagination.total = users.value.length
-      loading.value = false
-    }, 500)
-  }
+  getRoleOptions()
+  getUserList()
 })
 </script>
 
@@ -435,22 +504,12 @@ onMounted(() => {
 .customers-container {
   padding: 24px;
   background: #fff;
-
+  
   .operation-bar {
-    margin-bottom: 16px;
     display: flex;
     justify-content: space-between;
-  }
-
-  .user-info {
-    display: flex;
     align-items: center;
-    gap: 8px;
-
-    .user-name {
-      color: #333;
-      font-weight: 500;
-    }
+    margin-bottom: 16px;
   }
 }
 </style>
