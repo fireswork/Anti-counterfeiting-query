@@ -40,30 +40,6 @@ const loadProvinceData = async () => {
   }
 }
 
-// 连接线数据
-const createLinesData = () => {
-  // 新疆连接到多个省份
-  const xinjiang = [87.68, 43.77]; // 新疆中心点坐标
-  return [
-    {
-      coords: [xinjiang, [116.4, 39.9]], // 新疆到北京
-      lineStyle: { color: 'rgba(147, 235, 248, 0.6)' }
-    },
-    {
-      coords: [xinjiang, [121.4, 31.2]], // 新疆到上海
-      lineStyle: { color: 'rgba(147, 235, 248, 0.5)' }
-    },
-    {
-      coords: [xinjiang, [104.06, 30.67]], // 新疆到成都
-      lineStyle: { color: 'rgba(147, 235, 248, 0.4)' }
-    },
-    {
-      coords: [xinjiang, [113.3, 23.1]], // 新疆到广州
-      lineStyle: { color: 'rgba(147, 235, 248, 0.7)' }
-    }
-  ];
-};
-
 const getOption = () => {
   // 计算最大值，如果没有数据则默认为100
   const maxValue = mapData.value.length > 0 
@@ -142,25 +118,6 @@ const getOption = () => {
           '香港特别行政区': '香港',
           '澳门特别行政区': '澳门'
         }
-      },
-      {
-        name: '连接线',
-        type: 'lines',
-        coordinateSystem: 'geo',
-        zlevel: 2,
-        effect: {
-          show: true,
-          period: 6,
-          trailLength: 0.5,
-          color: '#16f3ff',
-          symbolSize: 4
-        },
-        lineStyle: {
-          width: 1,
-          color: 'rgba(0, 255, 255, 0.3)',
-          curveness: 0.35
-        },
-        data: createLinesData()
       },
       {
         name: '点',
