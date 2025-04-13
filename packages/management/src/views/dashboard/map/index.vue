@@ -14,10 +14,10 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
-import { loadChineseMap } from './fetchChineseMap'
 import 'animate.css'
 import request from '@/api/request'
 import { message } from 'ant-design-vue'
+import chinaMap from '/public/map/china.json'
 
 const chartRef = ref(null)
 let chartInstance = null
@@ -190,11 +190,9 @@ const getOption = () => {
 }
 
 const initChart = async () => {
-  const isMapLoaded = await loadChineseMap()
-  if (!isMapLoaded || !chartRef.value) {
-    console.error('地图加载失败或图表容器未找到')
-    return
-  }
+  if (!echarts.getMap('china')) {
+      echarts.registerMap('china', chinaMap)
+    }
   
   chartInstance = echarts.init(chartRef.value)
   chartInstance.setOption(getOption())
