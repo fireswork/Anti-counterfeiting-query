@@ -55,6 +55,9 @@
         <a-button type="primary" @click="handleAdd">
           <plus-outlined /> 添加标签
         </a-button>
+        <a-button @click="handleImport">
+          <upload-outlined /> 批量导入
+        </a-button>
       </a-space>
     </div>
 
@@ -211,6 +214,16 @@
       <p>确定要删除选中的 {{ selectedRowKeys.length }} 个标签吗？</p>
       <p style="color: #ff4d4f;">此操作不可恢复，请谨慎操作！</p>
     </a-modal>
+    
+    <!-- 批量导入模态框 -->
+    <BatchImportModal
+      ref="importModalRef"
+      v-model:visible="importModalVisible"
+      title="批量导入标签"
+      template-url="/public/template/标签导入样例.xlsx"
+      :update-support="false"
+      @import="handleImportConfirm"
+    />
   </div>
 </template>
 
@@ -221,10 +234,11 @@ import {
   PlusOutlined, 
   SearchOutlined,
   RedoOutlined,
-  ReloadOutlined
+  UploadOutlined
 } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
 import request from '@/api/request'
+import BatchImportModal from '@/components/BatchImportModal.vue'
 
 // 表格列定义
 const columns = [
@@ -594,6 +608,42 @@ const confirmBatchDelete = async () => {
     message.error('批量删除失败')
   } finally {
     batchDeleteLoading.value = false
+  }
+}
+
+// 批量导入相关
+const importModalVisible = ref(false)
+const templateUrl = `${import.meta.env.VITE_BASE_URL}/api/tag/import-template` // 模板URL
+const importModalRef = ref(null)
+
+// 显示导入模态框
+const handleImport = () => {
+  importModalVisible.value = true
+}
+
+// 处理导入
+const handleImportConfirm = async (file, updateSupport) => {
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const res = await request.post('/biz/tag/importData', formData, {
+      params: {
+        updateSupport: updateSupport ? 'true' : 'false'
+      },
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    
+    if (res.code === 200) {
+      importModalRef.value.showImportResult(res.msg, true)
+      getTagList()
+    } else {
+      importModalRef.value.showImportResult(res.msg, false)
+    }
+  } catch (error) {
+    importModalRef.value.showImportResult(error.msg, false)
   }
 }
 

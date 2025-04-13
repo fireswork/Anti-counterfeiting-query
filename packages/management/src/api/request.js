@@ -39,7 +39,7 @@ request.interceptors.response.use(
         window.location.href = '/login'
       }
       message.error(res.message || res.msg || '请求出错')
-      return Promise.reject()
+      return Promise.reject(res)
     } else {
       return res
     }

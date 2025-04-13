@@ -39,11 +39,8 @@
           <a-button type="primary" @click="handleAdd">
             <plus-outlined />新增
           </a-button>
-          <a-button @click="handleImport">
-            <upload-outlined />批量导入
-          </a-button>
           <a-button type="primary" @click="handleBatchRecover" :disabled="!selectedRowKeys.length">恢复出厂</a-button>
-          <a-button type="primary" dang er @click="handleBatchDelete" :disabled="!selectedRowKeys.length">
+          <a-button type="primary" danger @click="handleBatchDelete" :disabled="!selectedRowKeys.length">
             <delete-outlined />批量删除
           </a-button>
         </a-space>
@@ -119,66 +116,6 @@
         </template>
       </template>
     </a-table>
-
-    <!-- 批量导入模态框 -->
-    <a-modal
-      v-model:open="importModalVisible"
-      title="批量导入售后数据"
-      @ok="handleImportConfirm"
-      :confirm-loading="importing"
-      width="600px"
-    >
-      <div class="import-steps">
-        <div class="step-item">
-          <div class="step-number">1.下载模板</div>
-          <div class="step-info">
-            <p>请先下载Excel导入模板，按照模板格式填写数据</p>
-            <a-button type="link" class="download-template-btn" @click="handleDownloadTemplate">
-              <template #icon><download-outlined /></template>
-              下载导入模板
-            </a-button>
-          </div>
-        </div>
-        <div class="step-item">
-          <div class="step-number">2.上传文件</div>
-          <div class="step-info">
-            <p>选择填写好的Excel文件进行上传</p>
-            <a-upload
-              v-model:file-list="importFileList"
-              :before-upload="beforeImportUpload"
-              :max-count="1"
-              class="upload-area"
-            >
-              <div class="upload-trigger">
-                <p class="upload-icon">
-                  <upload-outlined />
-                </p>
-                <p class="upload-text">点击或拖拽文件到此处上传</p>
-                <p class="upload-hint">支持 .xlsx、.xls 格式，文件大小不超过5MB</p>
-                <a-button type="primary" class="upload-btn">
-                  <template #icon><upload-outlined /></template>
-                  选择文件
-                </a-button>
-              </div>
-            </a-upload>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="importFileList.length > 0" class="upload-list-item">
-        <file-excel-outlined style="color: #52c41a; font-size: 16px" />
-        <span class="file-name">{{ importFileList[0].name }}</span>
-        <span class="file-size">{{ (importFileList[0].size / 1024).toFixed(1) }}KB</span>
-      </div>
-
-      <a-alert
-        v-if="importFileList.length > 0"
-        message="文件已选择，点击确定开始导入"
-        type="success"
-        show-icon
-        style="margin-top: 16px"
-      />
-    </a-modal>
 
     <!-- 图片预览 -->
     <a-modal v-model:open="previewVisible" :title="previewTitle" :footer="null">
@@ -276,9 +213,6 @@
 import { ref, reactive, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
 import { 
-  UploadOutlined, 
-  FileExcelOutlined, 
-  DownloadOutlined,
   PlusOutlined,
   DeleteOutlined
 } from '@ant-design/icons-vue'
@@ -576,69 +510,6 @@ const handleBatchRecover = async () => {
 const handlePreviewImg = (url) => {
   previewImage.value = url
   previewVisible.value = true
-}
-
-// 批量导入相关
-const importModalVisible = ref(false)
-const importing = ref(false)
-const importFileList = ref([])
-
-// 显示导入模态框
-const handleImport = () => {
-  importModalVisible.value = true
-  importFileList.value = []
-}
-
-// 上传前校验
-const beforeImportUpload = (file) => {
-  const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
-                 file.type === 'application/vnd.ms-excel'
-  if (!isExcel) {
-    message.error('只能上传 Excel 文件！')
-    return false
-  }
-  
-  const isLt5M = file.size / 1024 / 1024 < 5
-  if (!isLt5M) {
-    message.error('文件大小不能超过 5MB！')
-    return false
-  }
-
-  return false // 阻止自动上传
-}
-
-// 确认导入
-const handleImportConfirm = async () => {
-  if (importFileList.value.length === 0) {
-    message.warning('请选择要导入的文件')
-    return
-  }
-
-  try {
-    importing.value = true
-    const file = importFileList.value[0]
-    const formData = new FormData()
-    formData.append('file', file.originFileObj)
-
-    // 模拟导入API调用
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    message.success('导入成功')
-    importModalVisible.value = false
-    // 重新加载数据
-    fetchProductList()
-  } catch (error) {
-    message.error('导入失败：' + (error.message || '未知错误'))
-  } finally {
-    importing.value = false
-  }
-}
-
-// 下载导入模板
-const handleDownloadTemplate = () => {
-  // 替换为实际的模板下载API
-  const templateUrl = `${import.meta.env.VITE_BASE_URL}/api/after-sales/import-template`
-  window.open(templateUrl, '_blank')
 }
 
 // 日期格式化

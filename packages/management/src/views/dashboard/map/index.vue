@@ -16,47 +16,29 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
 import { loadChineseMap } from './fetchChineseMap'
 import 'animate.css'
+import request from '@/api/request'
+import { message } from 'ant-design-vue'
 
 const chartRef = ref(null)
 let chartInstance = null
 
-// Mock数据 - 模拟各省份查询数量
-const mapData = [
-  { name: '北京市', value: 199 },
-  { name: '天津市', value: 42 },
-  { name: '河北省', value: 102 },
-  { name: '山西省', value: 81 },
-  { name: '内蒙古自治区', value: 47 },
-  { name: '辽宁省', value: 67 },
-  { name: '吉林省', value: 82 },
-  { name: '黑龙江省', value: 123 },
-  { name: '上海市', value: 178 },
-  { name: '江苏省', value: 142 },
-  { name: '浙江省', value: 156 },
-  { name: '安徽省', value: 85 },
-  { name: '福建省', value: 92 },
-  { name: '江西省', value: 51 },
-  { name: '山东省', value: 112 },
-  { name: '河南省', value: 94 },
-  { name: '湖北省', value: 106 },
-  { name: '湖南省', value: 81 },
-  { name: '广东省', value: 187 },
-  { name: '广西壮族自治区', value: 59 },
-  { name: '海南省', value: 29 },
-  { name: '重庆市', value: 91 },
-  { name: '四川省', value: 114 },
-  { name: '贵州省', value: 62 },
-  { name: '云南省', value: 83 },
-  { name: '西藏自治区', value: 22 },
-  { name: '陕西省', value: 89 },
-  { name: '甘肃省', value: 57 },
-  { name: '青海省', value: 34 },
-  { name: '宁夏回族自治区', value: 28 },
-  { name: '新疆维吾尔自治区', value: 71 },
-  { name: '台湾省', value: 47 },
-  { name: '香港特别行政区', value: 67 },
-  { name: '澳门特别行政区', value: 15 }
-]
+// 数据存储
+const mapData = ref([])
+
+// 加载省份数据
+const loadProvinceData = async () => {
+  try {
+    const res = await request.get('/system/report/provinceStatistics')
+    if (res.code === 200) {
+      mapData.value = res.data || []
+    } else {
+      message.error('获取省份数据失败')
+    }
+  } catch (error) {
+    console.error('获取省份数据失败:', error)
+    message.error('获取省份数据失败')
+  }
+}
 
 // 连接线数据
 const createLinesData = () => {
@@ -83,6 +65,11 @@ const createLinesData = () => {
 };
 
 const getOption = () => {
+  // 计算最大值，如果没有数据则默认为100
+  const maxValue = mapData.value.length > 0 
+    ? Math.max(...mapData.value.map(item => item.value)) 
+    : 100;
+    
   return {
     backgroundColor: '#061d33',
     title: {
@@ -103,7 +90,7 @@ const getOption = () => {
     },
     visualMap: {
       min: 0,
-      max: 200,
+      max: maxValue,
       left: 'left',
       bottom: 20,
       text: ['高', '低'],
@@ -145,7 +132,7 @@ const getOption = () => {
             areaColor: '#00c1de'
           }
         },
-        data: mapData,
+        data: mapData.value,
         nameMap: {
           '新疆维吾尔自治区': '新疆',
           '内蒙古自治区': '内蒙古',
@@ -215,7 +202,14 @@ const initChart = async () => {
   // 添加点击事件
   chartInstance.on('click', params => {
     if (params.name) {
-      const data = mapData.find(item => item.name === params.name)
+      // 从真实数据中查找对应省份数据
+      const data = mapData.value.find(item => {
+        // 处理名称差异，如"新疆维吾尔自治区"和"新疆"
+        const paramName = params.name.replace(/维吾尔自治区|壮族自治区|回族自治区|自治区|特别行政区/, '')
+        const itemName = item.name.replace(/维吾尔自治区|壮族自治区|回族自治区|自治区|特别行政区/, '')
+        return itemName.includes(paramName) || paramName.includes(itemName)
+      })
+      
       if (data) {
         // 弹出提示框显示详细信息
         chartInstance.dispatchAction({
@@ -235,15 +229,6 @@ const initChart = async () => {
       }
     }
   })
-
-  // 在特定区域上添加弹出提示框
-  setTimeout(() => {
-    chartInstance.dispatchAction({
-      type: 'showTip',
-      seriesIndex: 0,
-      name: '新疆'
-    })
-  }, 1000)
 }
 
 const handleResize = () => {
@@ -252,9 +237,43 @@ const handleResize = () => {
   }
 }
 
+// 更新图表
+const updateChart = () => {
+  if (chartInstance) {
+    chartInstance.setOption(getOption())
+    
+    // 如果有数据，自动显示第一个省份的提示
+    if (mapData.value.length > 0) {
+      setTimeout(() => {
+        chartInstance.dispatchAction({
+          type: 'showTip',
+          seriesIndex: 0,
+          name: mapData.value[0].name
+        })
+      }, 1000)
+    }
+  }
+}
+
 onMounted(async () => {
+  // 先加载省份数据
+  await loadProvinceData()
+  
+  // 初始化地图
   await initChart()
+  
+  // 设置定时刷新数据
+  const refreshTimer = setInterval(async () => {
+    await loadProvinceData()
+    updateChart()
+  }, 60000) // 每分钟刷新一次
+  
   window.addEventListener('resize', handleResize)
+  
+  // 清理定时器
+  onUnmounted(() => {
+    clearInterval(refreshTimer)
+  })
 })
 
 onUnmounted(() => {

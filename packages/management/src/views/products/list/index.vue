@@ -53,6 +53,9 @@
           <a-button type="primary" @click="showAddModal">
             <plus-outlined />添加商品
           </a-button>
+          <a-button @click="handleImport">
+            <upload-outlined />批量导入
+          </a-button>
           <a-popconfirm
             title="确定要批量删除选中的商品吗?"
             ok-text="确定"
@@ -62,10 +65,9 @@
             <a-button
               type="primary"
               danger
-              @click="handleBatchDelete"
               :disabled="selectedRowKeys.length === 0"
             >
-            <delete-outlined />批量删除
+              <delete-outlined />批量删除
             </a-button>
           </a-popconfirm>
         </a-space>
@@ -263,6 +265,16 @@
         }}</a-descriptions-item>
       </a-descriptions>
     </a-modal>
+
+    <!-- 批量导入模态框 -->
+    <BatchImportModal
+      ref="importModalRef"
+      v-model:visible="importModalVisible"
+      title="批量导入商品"
+      template-url="/public/template/商品导入样例.xlsx"
+      :update-support="false"
+      @import="handleImportConfirm"
+    />
   </div>
 </template>
 
@@ -274,9 +286,11 @@ import {
   SearchOutlined,
   ReloadOutlined,
   DownOutlined,
+  UploadOutlined,
 } from "@ant-design/icons-vue";
 import request from "@/api/request";
 import dayjs from "dayjs";
+import BatchImportModal from "@/components/BatchImportModal.vue";
 
 // 表格列定义
 const columns = [
@@ -429,7 +443,6 @@ const resetQuery = () => {
   fetchProductList();
 };
 
-console.log(selectedRowKeys.value.length, 2111);
 // 表格行选择变化
 const onSelectChange = (keys) => {
   selectedRowKeys.value = keys;
@@ -659,11 +672,11 @@ const handleBatchDelete = async () => {
       message.warning("请选择要删除的商品");
       return;
     }
-    
+
     // 使用正确的接口格式: /biz/product/5,6
     const ids = selectedRowKeys.value.join(",");
     const res = await request.delete(`/biz/product/${ids}`);
-    
+
     if (res.code === 200) {
       message.success("批量删除成功");
       selectedRowKeys.value = [];
@@ -709,6 +722,44 @@ const handleStatusChange = async (record) => {
 const formatDateTime = (dateStr) => {
   if (!dateStr) return "--";
   return dayjs(dateStr).format("YYYY-MM-DD HH:mm:ss");
+};
+
+// 批量导入相关
+const importModalVisible = ref(false);
+const importModalRef = ref(null);
+
+// 显示导入模态框
+const handleImport = () => {
+  importModalVisible.value = true;
+};
+
+// 处理导入
+const handleImportConfirm = async (file, updateSupport) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const res = await request.post("/biz/product/importData", formData, {
+    params: {
+      updateSupport: updateSupport ? "true" : "false",
+    },
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+
+  if (res.code === 200) {
+    // 显示导入成功结果
+    importModalRef.value.showImportResult(res.msg, true);
+
+    // 重新加载数据
+    fetchProductList();
+  } else {
+      importModalRef.value.showImportResult(res.msg, false);
+    }
+  } catch (error) {
+    importModalRef.value.showImportResult(error.msg, false);
+  }
 };
 </script>
 

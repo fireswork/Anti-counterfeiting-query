@@ -16,6 +16,11 @@ const router = createRouter({
       component: () => import('../views/RegisterView.vue')
     },
     {
+      path: '/verify',
+      name: 'verify',
+      component: () => import('../views/VerifyView.vue')
+    },
+    {
       path: '/',
       name: 'community',
       component: CommunityView,
@@ -27,6 +32,12 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const userStore = useUserStore()
   const isLoggedIn = userStore.isLoggedIn
+
+  // 验证页面允许直接访问
+  if (to.name === 'verify') {
+    next()
+    return
+  }
 
   // 需要登录的路由
   if (to.meta.requiresAuth && !isLoggedIn) {

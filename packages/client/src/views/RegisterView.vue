@@ -18,15 +18,34 @@
           :after-read="afterRead"
           @delete="onDelete"
         >
-          <div class="upload-area" v-if="!formData.avatar">
-            <van-icon name="photograph" size="24" />
-            <span>上传头像</span>
-          </div>
-          <div class="avatar-preview" v-else>
-            <img :src="formData.avatar" alt="avatar">
+          <div class="avatar-container">
+            <img
+              v-if="formData.avatar"
+              :src="formData.avatar"
+              alt="头像"
+              class="avatar"
+            />
+            <div v-else class="avatar-placeholder">
+              <van-icon name="photograph" size="24" />
+              <span>上传头像</span>
+            </div>
+            <div class="avatar-mask" v-if="formData.avatar">
+              <van-icon name="photograph" size="20" />
+              <span>更换头像</span>
+            </div>
           </div>
         </van-uploader>
       </div>
+
+      <van-field
+        v-model="formData.nickName"
+        name="phone"
+        label="昵称"
+        placeholder="请输入昵称"
+        :rules="[
+          { required: true, message: '请输入昵称' },
+        ]"
+      />
       
       <van-field
         v-model="formData.phone"
@@ -58,7 +77,7 @@
         placeholder="请输入密码"
         :rules="[
           { required: true, message: '请输入密码' },
-          { pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,20}$/, message: '密码必须包含大小写字母和数字，长度8-20位' }
+          { min: 6, max: 16, message: '密码长度应在6-16个字符之间' }
         ]"
       />
 
@@ -76,24 +95,12 @@
 
       <van-field name="gender" label="性别">
         <template #input>
-          <van-radio-group v-model="formData.gender" direction="horizontal" class="gender-group">
+          <van-radio-group v-model="formData.sex" direction="horizontal" class="gender-group">
             <van-radio name="1">男</van-radio>
-            <van-radio name="2">女</van-radio>
+            <van-radio name="0">女</van-radio>
           </van-radio-group>
         </template>
       </van-field>
-
-      <van-field
-        v-model="formData.age"
-        type="digit"
-        name="age"
-        label="年龄"
-        placeholder="请输入年龄"
-        :rules="[
-          { required: true, message: '请输入年龄' },
-          { validator: validateAge, message: '年龄必须在1-120岁之间' }
-        ]"
-      />
 
       <div class="form-actions">
         <van-button 
@@ -117,7 +124,7 @@
     <van-dialog v-model:show="showCropper" title="裁切头像" :show-confirm-button="false" class="cropper-dialog">
       <vue-cropper
         ref="cropperRef"
-        :src="cropperImage"
+        :img="cropperImage"
         :aspect-ratio="1"
         :view-mode="1"
         :auto-crop-area="0.8"
@@ -143,34 +150,27 @@ import { showToast } from 'vant'
 import { useUserStore } from '../stores/user'
 import 'vue-cropper/dist/index.css'
 import { VueCropper } from 'vue-cropper'
+import request from '@/api/request'
 import 'animate.css'
 
 const router = useRouter()
-const userStore = useUserStore()
 const cropperRef = ref(null)
 
 const formData = reactive({
-  username: '',
+  nickName: '',
   phone: '',
   email: '',
   password: '',
-  gender: 'male',
-  age: '',
+  sex: '1',
   avatar: ''
 })
 
 const confirmPassword = ref('')
 const loading = ref(false)
 const fileList = ref([])
-const avatar = ref('')
 const showCropper = ref(false)
 const cropperImage = ref('')
 
-// 验证年龄
-const validateAge = (val) => {
-  const age = parseInt(val)
-  return age > 0 && age <= 120
-}
 
 // 验证确认密码
 const validateConfirmPassword = () => {
@@ -179,6 +179,18 @@ const validateConfirmPassword = () => {
 
 // 图片上传前处理
 const beforeRead = (file) => {
+  const isImage = file.type.startsWith('image/')
+  if (!isImage) {
+    showToast('只能上传图片文件！')
+    return false
+  }
+
+  const isLt2M = file.size / 1024 / 1024 < 2
+  if (!isLt2M) {
+    showToast('图片大小不能超过2MB！')
+    return false
+  }
+
   const reader = new FileReader()
   reader.onload = (e) => {
     cropperImage.value = e.target.result
@@ -191,31 +203,74 @@ const beforeRead = (file) => {
 // 裁切图片
 const cropImage = () => {
   cropperRef.value.getCropData((data) => {
-    avatar.value = data
     formData.avatar = data
     showCropper.value = false
+    fileList.value = [{
+      url: data,
+      isImage: true
+    }]
   })
+}
+
+// 取消裁切
+const cancelCrop = () => {
+  cropperImage.value = ''
+  showCropper.value = false
+  fileList.value = []
 }
 
 // 删除头像
 const onDelete = () => {
-  avatar.value = ''
   formData.avatar = ''
+  fileList.value = []
 }
 
 const onSubmit = async () => {
   try {
     loading.value = true
-    await userStore.register(formData)
-    showToast({
-      type: 'success',
-      message: '注册成功'
-    })
-    router.push('/')
+    
+    // 创建 FormData 对象
+    const formDataObj = new FormData()
+    
+    // 如果有头像，将base64转为blob
+    if (formData.avatar) {
+      const arr = formData.avatar.split(',')
+      const mime = arr[0].match(/:(.*?);/)[1]
+      const bstr = atob(arr[1])
+      let n = bstr.length
+      const u8arr = new Uint8Array(n)
+      
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n)
+      }
+      
+      const blob = new Blob([u8arr], { type: mime })
+      formDataObj.append('avatarFile', blob, 'avatar.png')
+    }
+    
+    // 添加其他表单数据
+    formDataObj.append('nickName', formData.nickName)
+    formDataObj.append('password', formData.password)
+    formDataObj.append('phonenumber', formData.phone)
+    formDataObj.append('email', formData.email)
+    formDataObj.append('sex', formData.sex)
+
+    // 调用注册接口
+    const res = await request.post('/mRegister', formDataObj)
+    
+    if (res.code === 200) {
+      showToast({
+        type: 'success',
+        message: '注册成功'
+      })
+      router.push('/login')
+    } else {
+      throw new Error(data.msg || '注册失败')
+    }
   } catch (error) {
     showToast({
       type: 'fail',
-      message: error.response?.data?.message || '注册失败'
+      message: error.message || '注册失败'
     })
   } finally {
     loading.value = false
@@ -224,6 +279,14 @@ const onSubmit = async () => {
 </script>
 
 <style lang="less" scoped>
+:deep(.van-uploader__preview) {
+  img {
+    border-radius: 100%;
+  }
+}
+.vue-cropper {
+  height: 200px;
+}
 .register-container {
   width: 100%;
   min-height: 100vh;
@@ -287,36 +350,53 @@ const onSubmit = async () => {
     text-align: center;
     margin-bottom: 30px;
 
-    .upload-area {
-      width: 100px;
-      height: 100px;
-      margin: 0 auto;
-      border: 2px dashed #dcdee0;
-      border-radius: 50%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      color: #969799;
-
-      span {
-        margin-top: 8px;
-        font-size: 14px;
-      }
-    }
-
-    .avatar-preview {
+    .avatar-container {
+      position: relative;
       width: 100px;
       height: 100px;
       margin: 0 auto;
       border-radius: 50%;
       overflow: hidden;
-      
-      img {
+      background-color: #f0f2f5;
+
+      .avatar {
         width: 100%;
         height: 100%;
         object-fit: cover;
+      }
+
+      .avatar-placeholder {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 100%;
+        color: #969799;
+        font-size: 14px;
+
+        .van-icon {
+          margin-bottom: 8px;
+        }
+      }
+
+      .avatar-mask {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: #fff;
+        font-size: 14px;
+
+        .van-icon {
+          margin-bottom: 8px;
+        }
       }
     }
   }
