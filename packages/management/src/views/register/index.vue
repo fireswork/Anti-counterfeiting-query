@@ -91,8 +91,14 @@ const validateConfirmPassword = async (rule, value) => {
 }
 
 const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 2, max: 20, message: '用户名长度应在2-20个字符之间', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 5, max: 20, message: '密码长度应在5-20个字符之间', trigger: 'blur' }
+  ],
   confirmPassword: [{ validator: validateConfirmPassword, trigger: 'blur' }]
 }
 

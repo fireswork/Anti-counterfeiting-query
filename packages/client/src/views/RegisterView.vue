@@ -44,6 +44,7 @@
         placeholder="请输入昵称"
         :rules="[
           { required: true, message: '请输入昵称' },
+          { min: 2, max: 20, message: '昵称长度应在2-20个字符之间' }
         ]"
       />
       
@@ -77,7 +78,7 @@
         placeholder="请输入密码"
         :rules="[
           { required: true, message: '请输入密码' },
-          { min: 6, max: 16, message: '密码长度应在6-16个字符之间' }
+          { min: 5, max: 20, message: '密码长度应在5-20个字符之间' }
         ]"
       />
 
