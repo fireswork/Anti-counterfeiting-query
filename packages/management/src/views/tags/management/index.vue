@@ -7,7 +7,7 @@
       <a-space>
         <a-input-search
           v-model:value="queryParams.tagData"
-          placeholder="搜索标签数据"
+          placeholder="搜索标签ID"
           style="width: 250px"
           @search="handleQuery"
           allowClear
@@ -52,6 +52,13 @@
         >
           批量删除
         </a-button>
+        <a-button 
+          type="primary"
+          :disabled="!selectedRowKeys.length"
+          @click="handleBatchLink"
+        >
+          <link-outlined /> 批量关联
+        </a-button>
         <a-button type="primary" @click="handleAdd">
           <plus-outlined /> 添加标签
         </a-button>
@@ -73,7 +80,8 @@
         current: queryParams.pageNum,
         onChange: handlePageChange,
         onShowSizeChange: handleSizeChange,
-        showTotal: total => `共 ${total} 条`
+        showTotal: total => `共 ${total} 条`,
+        pageSizeOptions: ['10', '20', '50', '100', '200']
       }"
       @change="handleTableChange"
       :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
@@ -161,8 +169,8 @@
             </a-select-option>
           </a-select>
         </a-form-item>
-        <a-form-item label="标签数据" name="tagData">
-          <a-input v-model:value="formData.tagData" placeholder="请输入标签数据" />
+        <a-form-item label="标签ID" name="tagData">
+          <a-input v-model:value="formData.tagData" placeholder="请输入标签ID" :disabled="formMode === 'edit'" />
         </a-form-item>
         <a-form-item label="验证次数" name="verificationCount" v-if="formMode === 'edit'">
           <a-input-number v-model:value="formData.verificationCount" placeholder="验证次数" disabled />
@@ -185,7 +193,7 @@
     >
       <a-descriptions bordered :column="2">
         <a-descriptions-item label="标签ID" span="2">{{ viewData.id }}</a-descriptions-item>
-        <a-descriptions-item label="标签数据" span="2">{{ viewData.tagData }}</a-descriptions-item>
+        <a-descriptions-item label="标签ID" span="2">{{ viewData.tagData }}</a-descriptions-item>
         <a-descriptions-item label="标签类型">{{ viewData.tagType }}</a-descriptions-item>
         <a-descriptions-item label="标签类型ID">{{ viewData.tagTypeId }}</a-descriptions-item>
         <a-descriptions-item label="商品名称">{{ viewData.productName }}</a-descriptions-item>
@@ -224,6 +232,84 @@
       :update-support="false"
       @import="handleImportConfirm"
     />
+    
+    <!-- 批量关联标签弹窗 -->
+    <a-modal
+      v-model:open="batchLinkModalVisible"
+      title="批量关联标签"
+      @ok="handleBatchLinkSubmit"
+      :confirm-loading="batchLinkLoading"
+      width="550px"
+    >
+      <a-alert
+        v-if="selectedRowKeys.length"
+        type="info"
+        :message="`已选择 ${selectedRowKeys.length} 个标签进行批量关联`"
+        style="margin-bottom: 16px"
+      />
+      
+      <a-form
+        ref="batchLinkFormRef"
+        :model="batchLinkForm"
+        :label-col="{ span: 6 }"
+        :wrapper-col="{ span: 16 }"
+      >
+        <a-form-item label="关联类型" name="linkType" :rules="[{ required: true, message: '请选择关联类型' }]">
+          <a-radio-group v-model:value="batchLinkForm.linkType" @change="handleLinkTypeChange">
+            <a-radio value="product">关联到商品</a-radio>
+            <a-radio value="tagType">关联到标签类型</a-radio>
+          </a-radio-group>
+        </a-form-item>
+        
+        <a-form-item 
+          v-if="batchLinkForm.linkType === 'product'" 
+          label="选择商品" 
+          name="productId"
+          :rules="[{ required: batchLinkForm.linkType === 'product', message: '请选择商品' }]"
+        >
+          <a-select
+            v-model:value="batchLinkForm.productId"
+            placeholder="请选择商品"
+            style="width: 100%"
+            allowClear
+          >
+            <a-select-option
+              v-for="item in productOptions"
+              :key="item.id"
+              :value="item.id"
+            >
+              {{ item.productName }}
+            </a-select-option>
+          </a-select>
+        </a-form-item>
+        
+        <a-form-item 
+          v-if="batchLinkForm.linkType === 'tagType'" 
+          label="选择标签类型" 
+          name="tagTypeId"
+          :rules="[{ required: batchLinkForm.linkType === 'tagType', message: '请选择标签类型' }]"
+        >
+          <a-select
+            v-model:value="batchLinkForm.tagTypeId"
+            placeholder="请选择标签类型"
+            style="width: 100%"
+            allowClear
+          >
+            <a-select-option
+              v-for="item in tagTypeOptions"
+              :key="item.dictCode"
+              :value="item.dictCode"
+            >
+              {{ item.dictLabel }}
+            </a-select-option>
+          </a-select>
+        </a-form-item>
+      </a-form>
+      
+      <p style="color: #ff7d00; margin-top: 16px;">
+        <warning-outlined /> 注意：此操作会覆盖所选标签的原有关联关系，请谨慎操作。
+      </p>
+    </a-modal>
   </div>
 </template>
 
@@ -234,7 +320,9 @@ import {
   PlusOutlined, 
   SearchOutlined,
   RedoOutlined,
-  UploadOutlined
+  UploadOutlined,
+  LinkOutlined,
+  WarningOutlined
 } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
 import request from '@/api/request'
@@ -243,7 +331,7 @@ import BatchImportModal from '@/components/BatchImportModal.vue'
 // 表格列定义
 const columns = [
   {
-    title: '标签数据',
+    title: '标签ID',
     dataIndex: 'tagData',
   },
   {
@@ -261,6 +349,7 @@ const columns = [
   {
     title: '商品类型',
     dataIndex: 'productType',
+    customRender: ({text}) => categoryOptions.value.find(item => item.dictValue === text)?.dictLabel
   },
   {
     title: '验证次数',
@@ -302,6 +391,16 @@ const formMode = ref('add') // 'add' 或 'edit'
 const categoryOptions = ref([])
 const tagTypeOptions = ref([])
 const productOptions = ref([])
+
+// 批量关联相关变量
+const batchLinkModalVisible = ref(false)
+const batchLinkLoading = ref(false)
+const batchLinkFormRef = ref(null)
+const batchLinkForm = reactive({
+  linkType: 'product', // 'product' 或 'tagType'
+  productId: undefined,
+  tagTypeId: undefined
+})
 
 // 查询参数
 const queryParams = reactive({
@@ -349,7 +448,7 @@ const formData = reactive({
 // 表单校验规则
 const rules = {
   tagData: [
-    { required: true, message: '请输入标签数据', trigger: 'blur' },
+    { required: true, message: '请输入标签ID', trigger: 'blur' },
   ],
   tagTypeId: [
     { required: true, message: '请选择标签类型', trigger: 'change' }
@@ -644,6 +743,68 @@ const handleImportConfirm = async (file, updateSupport) => {
     }
   } catch (error) {
     importModalRef.value.showImportResult(error.msg, false)
+  }
+}
+
+// 批量关联类型变化
+const handleLinkTypeChange = () => {
+  // 清空其他字段
+  if (batchLinkForm.linkType === 'product') {
+    batchLinkForm.tagTypeId = undefined
+  } else {
+    batchLinkForm.productId = undefined
+  }
+}
+
+// 打开批量关联弹窗
+const handleBatchLink = () => {
+  if (selectedRowKeys.value.length === 0) {
+    message.warning('请选择要关联的标签')
+    return
+  }
+  
+  // 重置表单
+  batchLinkForm.linkType = 'product'
+  batchLinkForm.productId = undefined
+  batchLinkForm.tagTypeId = undefined
+  
+  batchLinkModalVisible.value = true
+}
+
+// 提交批量关联
+const handleBatchLinkSubmit = async () => {
+  try {
+    await batchLinkFormRef.value.validate()
+    batchLinkLoading.value = true
+    
+    // 组装请求数据
+    const requestData = {
+      tagIds: selectedRowKeys.value
+    }
+    
+    // 根据关联类型添加不同的字段
+    if (batchLinkForm.linkType === 'product') {
+      requestData.productId = batchLinkForm.productId
+    } else {
+      requestData.tagTypeId = batchLinkForm.tagTypeId
+    }
+    
+    // 发送请求
+    const res = await request.post('/biz/tag/batchLink', requestData)
+    
+    if (res.code === 200) {
+      message.success(`成功关联${res.data}条记录`)
+      batchLinkModalVisible.value = false
+      getTagList()
+      selectedRowKeys.value = []
+    } else {
+      message.error(res.msg || '批量关联失败')
+    }
+  } catch (error) {
+    console.error('批量关联失败:', error)
+    message.error('批量关联失败')
+  } finally {
+    batchLinkLoading.value = false
   }
 }
 

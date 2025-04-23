@@ -108,11 +108,6 @@
           />
         </template>
 
-        <!-- 商品分类 -->
-        <template v-if="column.dataIndex === 'productType'">
-          {{ record.productType }}
-        </template>
-
         <!-- 商品状态 -->
         <template v-if="column.dataIndex === 'productStatus'">
           <a-tag :color="record.productStatus === '1' ? 'green' : 'orange'">
@@ -188,6 +183,14 @@
               {{ category.dictLabel }}
             </a-select-option>
           </a-select>
+        </a-form-item>
+
+        <a-form-item label="商品描述" name="productDesc">
+          <a-input
+            v-model:value="formData.productDesc"
+            placeholder="请填写商品描述"
+            @change="handleTypeChange"
+          />
         </a-form-item>
 
         <a-form-item label="商品状态" name="productStatus">
@@ -303,9 +306,16 @@ const columns = [
     dataIndex: "productName",
   },
   {
-    title: "商品类型",
-    dataIndex: "productType",
+    title: "类型名称",
+    dataIndex: "productTypeId",
     width: "150px",
+    customRender: ({text}) => {
+      return categoryOptions.value.find(item => item.dictValue === String(text))?.dictLabel || '-'
+    }
+  },
+  {
+    title: "商品描述",
+    dataIndex: 'productDesc'
   },
   {
     title: "状态",
@@ -471,6 +481,9 @@ const rules = {
   productStatus: [
     { required: true, message: "请选择商品状态", trigger: "change" },
   ],
+  productDesc: [{
+    required: true, message: "请填写商品描述", trigger: "change"
+  }]
 };
 
 // 商品分类变更
@@ -501,7 +514,10 @@ const showAddModal = () => {
 const handleEdit = (record) => {
   isEdit.value = true;
   const recordCopy = JSON.parse(JSON.stringify(record));
-  Object.assign(formData, recordCopy);
+  Object.assign(formData, {
+    ...recordCopy,
+    productTypeId: recordCopy.productTypeId ? String(recordCopy.productTypeId) : '',
+  });
 
   fileList.value = record.productImage
     ? [
@@ -532,6 +548,7 @@ const handleModalOk = () => {
           productType: formData.productType,
           productTypeId: formData.productTypeId,
           productStatus: formData.productStatus,
+          productDesc: formData.productDesc,
         };
 
         // 如果是编辑，需要添加id字段

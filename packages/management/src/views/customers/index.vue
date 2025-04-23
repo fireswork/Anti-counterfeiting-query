@@ -329,7 +329,7 @@ const getUserList = async () => {
 const getRoleOptions = async () => {
   try {
     const res = await request.get('/system/role/optionselect')
-    roleOptions.value = res.data || []
+    roleOptions.value = res.data?.filter(item => item.roleKey !== 'admin') || []
   } catch (error) {
     console.error('获取角色选项失败', error)
     message.error('获取角色选项失败')

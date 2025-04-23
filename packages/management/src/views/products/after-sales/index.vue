@@ -132,7 +132,7 @@
       <a-descriptions bordered :column="1">
         <a-descriptions-item label="商品名称">{{ currentProduct.productName }}</a-descriptions-item>
         <a-descriptions-item label="商品类型">{{ currentProduct.productType }}</a-descriptions-item>
-        <a-descriptions-item label="标签数据">{{ currentProduct.tagData }}</a-descriptions-item>
+        <a-descriptions-item label="标签ID">{{ currentProduct.tagData }}</a-descriptions-item>
         <a-descriptions-item label="验证次数">{{ currentProduct.verificationCount }}</a-descriptions-item>
         <a-descriptions-item label="验证结果">
           <a-tag :color="currentProduct.verificationResult === true ? 'green' : (currentProduct.verificationResult === false ? 'red' : '')">
@@ -201,8 +201,8 @@
             </a-select-option>
           </a-select>
         </a-form-item>
-        <a-form-item label="标签数据" name="tagData">
-          <a-input v-model:value="formData.tagData" placeholder="请输入标签数据" />
+        <a-form-item label="标签ID" name="tagData">
+          <a-input v-model:value="formData.tagData" placeholder="请输入标签ID" />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -236,7 +236,7 @@ const columns = [
     }
   },
   {
-    title: '标签数据',
+    title: '标签ID',
     dataIndex: 'tagData',
     width: 150,
   },
@@ -266,7 +266,8 @@ const columns = [
   {
     title: '操作',
     dataIndex: 'action',
-    fixed: 'right'
+    fixed: 'right',
+    width: 220
   }
 ]
 
@@ -322,7 +323,7 @@ const formRules = {
   productId: [{ required: true, message: '请选择商品' }],
   productTypeId: [{ required: true, message: '请选择商品类型' }],
   tagTypeId: [{ required: true, message: '请选择标签类型' }],
-  tagData: [{ required: true, message: '请输入标签数据' }]
+  tagData: [{ required: true, message: '请输入标签ID' }]
 }
 
 // 构建查询参数
@@ -337,7 +338,7 @@ const buildQueryParams = () => {
   return params
 }
 
-// 获取售后标签数据
+// 获取售后标签ID
 const fetchProductList = async () => {
   loading.value = true
   try {
@@ -442,18 +443,7 @@ const handleSelectAll = (e) => {
 const handleRecover = async (record) => {
   try {
     // 使用标签修改接口
-    const res = await request.put('/biz/tag', {
-      id: record.id,
-      tagData: record.tagData,
-      tagType: record.tagType,
-      tagTypeId: record.tagTypeId,
-      productId: record.productId,
-      productName: record.productName,
-      productType: record.productType,
-      productTypeId: record.productTypeId,
-      verificationCount: 0, // 重置验证次数
-      verificationResult: null // 重置验证结果
-    })
+    const res = await request.post(`/biz/tag/reset/${record.id}`)
     
     if (res.code === 200) {
       message.success(`恢复出厂成功: ${record.productName}`)
@@ -480,18 +470,7 @@ const handleBatchRecover = async () => {
       const record = productList.value.find(item => item.id === id)
       if (!record) return null
       
-      return request.put('/biz/tag', {
-        id: record.id,
-        tagData: record.tagData,
-        tagType: record.tagType,
-        tagTypeId: record.tagTypeId,
-        productId: record.productId,
-        productName: record.productName,
-        productType: record.productType,
-        productTypeId: record.productTypeId,
-        verificationCount: 0, // 重置验证次数
-        verificationResult: null // 重置验证结果
-      })
+      return request.post(`/biz/tag/reset/${record.id}`)
     }).filter(Boolean)
     
     await Promise.all(promises)

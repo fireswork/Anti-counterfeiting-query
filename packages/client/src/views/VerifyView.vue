@@ -8,13 +8,20 @@
 
     <div class="verify-card" v-if="isMounted">
       <div class="verify-result">
-        <van-icon 
-          :name="verifyData.verificationResult === '1' ? 'checked' : 'clear'" 
+        <van-icon
+          :name="verifyData.verificationResult === '1' ? 'checked' : 'clear'"
           :class="verifyData.verificationResult === '1' ? 'success' : 'fail'"
         />
         <h2 :class="verifyData.verificationResult === '1' ? 'success' : 'fail'">
           {{ verifyData.verificationResult === '1' ? '验证通过' : '验证失败' }}
         </h2>
+        <div v-if="verifyData.verificationResult === '1'" class="infos">
+          <p><img :src="`https://second.uwork.tech/prod-api${verifyData.productImage}`" /></p>
+          <p>商品名称：{{ verifyData.productName }}</p>
+          <p>商品描述：{{ verifyData.productDesc }}</p>
+          <p>验证次数：{{ verifyData.verificationCount }}</p>
+        </div>
+        <van-button type="primary" @click="goLogin" class="goLogin">去登录</van-button>
       </div>
     </div>
   </div>
@@ -22,26 +29,31 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { showToast, showLoadingToast } from 'vant'
 import request from '@/api/request'
 
 const route = useRoute()
+const router = useRouter()
 const verifyData = ref({})
 const isMounted = ref(false)
+
+const goLogin = () => {
+  router.push('/login')
+}
 
 const getVerifyResult = async () => {
   const loading = showLoadingToast({
     message: '验证中...',
-    forbidClick: true,
+    forbidClick: true
   })
-  
+
   try {
     const tagData = route.query.tagData
     if (!tagData) {
       throw new Error('无效的防伪码')
     }
-    
+
     const res = await request.get('/verify?tagData=' + tagData)
     if (res.code === 200) {
       verifyData.value = res.data
@@ -66,7 +78,7 @@ onMounted(() => {
 
 <style lang="less" scoped>
 .verify-container {
-  background: linear-gradient(45deg, #FF512F, #DD2476);
+  background: linear-gradient(45deg, #ff512f, #dd2476);
   position: relative;
   overflow: hidden;
   display: flex;
@@ -76,20 +88,30 @@ onMounted(() => {
   height: 100vh;
 }
 
+.goLogin {
+  width: 100%;
+}
+
+.infos {
+  img {
+    width: 100px;
+  }
+}
+
 .background {
   .shape {
     height: 200px;
     width: 200px;
     position: absolute;
     border-radius: 50%;
-    
+
     &.shape-1 {
       background: linear-gradient(#1845ad, #23a2f6);
       left: -80px;
       top: -80px;
       animation: float 6s ease-in-out infinite;
     }
-    
+
     &.shape-2 {
       background: linear-gradient(to right, #ff512f, #f09819);
       right: -30px;
@@ -100,7 +122,8 @@ onMounted(() => {
 }
 
 @keyframes float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -140,4 +163,4 @@ onMounted(() => {
     color: #ff4d4f;
   }
 }
-</style> 
+</style>

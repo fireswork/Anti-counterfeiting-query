@@ -262,15 +262,15 @@ import request from '@/api/request'
 // 表格列定义
 const columns = [
   {
-    title: '标签数据',
+    title: '标签ID',
     dataIndex: 'tagData',
     width: 150,
   },
-  {
-    title: '标签ID',
-    dataIndex: 'tagId',
-    width: 100,
-  },
+  // {
+  //   title: '标签数据',
+  //   dataIndex: 'tagId',
+  //   width: 100,
+  // },
   {
     title: '商品名称',
     dataIndex: 'productName',
